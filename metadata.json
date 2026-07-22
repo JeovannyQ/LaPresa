@@ -1,0 +1,6 @@
+{
+  "name": "Gallera La Presa",
+  "description": "Landing page oficial de Gallera La Presa para transmisiones en vivo por Twitch y agenda de jugadas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
