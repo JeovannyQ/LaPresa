@@ -1,7 +1,7 @@
 import React from 'react';
 import { Play, Radio, MapPin, ExternalLink, Video } from 'lucide-react';
-import logoImg from '../assets/images/gallera_la_presa_logo_1784737350948.jpg';
-import heroBgImg from '../assets/images/gallera_hero_bg_1784737363010.jpg';
+import logoImg from '../assets/images/gallera_logo_new.jpeg';
+
 
 interface HeroProps {
   onWatchLiveClick: () => void;
@@ -11,31 +11,16 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ onWatchLiveClick, onScheduleClick }) => {
   return (
     <section id="hero" className="relative bg-zinc-50 text-zinc-900 overflow-hidden py-12 lg:py-20 border-b border-zinc-200">
-      {/* Background image subtle ambient overlay */}
-      <div className="absolute inset-0 z-0 opacity-10">
-        <img 
-          src={heroBgImg} 
-          alt="Gallera La Presa" 
-          className="w-full h-full object-cover filter contrast-125"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-zinc-50 via-zinc-50/90 to-zinc-50" />
-      </div>
-
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
           {/* Main Info */}
           <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
             
-            {/* Tag badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 border border-red-200 text-red-700 text-xs font-bold uppercase tracking-widest">
-              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-              Presa de Tavera • Transmisión en Vivo por Twitch
-            </div>
+
 
             {/* Title */}
-            <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black font-display uppercase italic tracking-tighter text-zinc-900 leading-none">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black font-display uppercase italic tracking-tighter text-zinc-900 leading-none">
               GALLERA <br />
               <span className="text-red-600">LA PRESA</span>
             </h1>

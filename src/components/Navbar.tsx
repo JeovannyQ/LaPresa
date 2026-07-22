@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Radio, ExternalLink, MapPin, Calendar, Phone, Menu, X, Play } from 'lucide-react';
-import logoImg from '../assets/images/gallera_la_presa_logo_1784737350948.jpg';
+import logoImg from '../assets/images/gallera_logo_new.jpeg';
 
 interface NavbarProps {
   isLive: boolean;
@@ -31,16 +31,6 @@ export const Navbar: React.FC<NavbarProps> = ({ isLive, onNavigateToTwitch, onSc
               <span className="text-[10px] uppercase tracking-[0.4em] font-extrabold text-red-600">
                 TRADICIÓN DOMINICANA
               </span>
-              {isLive ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest bg-red-600 text-white animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                  VIVO
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-widest bg-zinc-100 text-zinc-600 border border-zinc-200">
-                  Twitch HD
-                </span>
-              )}
             </div>
             <span className="font-display text-lg sm:text-xl font-black uppercase italic tracking-tighter text-zinc-900">
               GALLERA <span className="text-red-600">LA PRESA</span>
@@ -104,12 +94,9 @@ export const Navbar: React.FC<NavbarProps> = ({ isLive, onNavigateToTwitch, onSc
         <div className="md:hidden bg-white border-b border-zinc-200 px-4 pt-3 pb-6 space-y-3">
           <button
             onClick={() => { onScrollTo('live-stream'); setMobileMenuOpen(false); }}
-            className="w-full text-left py-2.5 px-3 rounded-sm bg-red-50 border border-red-200 text-red-600 font-bold text-xs uppercase tracking-widest flex items-center justify-between"
+            className="w-full text-left py-2.5 px-3 rounded-sm bg-red-50 border border-red-200 text-red-600 font-bold text-xs uppercase tracking-widest flex items-center gap-2"
           >
-            <span className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-red-600" /> Transmisión en Vivo
-            </span>
-            <span className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded-full font-black">VIVO</span>
+            <Radio className="w-4 h-4 text-red-600" /> Transmisión en Vivo
           </button>
 
           <button

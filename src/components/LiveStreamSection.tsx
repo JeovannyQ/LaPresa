@@ -39,7 +39,7 @@ export const LiveStreamSection: React.FC<LiveStreamSectionProps> = ({ currentFig
               <Radio className="w-3.5 h-3.5 animate-pulse" />
               <span>Transmisión Oficial Twitch</span>
             </div>
-            <h2 className="text-3xl sm:text-5xl font-display font-black uppercase italic tracking-tighter text-zinc-900">
+            <h2 className="text-3xl sm:text-4xl font-display font-black uppercase italic tracking-tighter text-zinc-900">
               RUEDO EN <span className="text-red-600">DIRECTO</span>
             </h2>
             <p className="text-zinc-600 font-editorial italic text-base mt-1">
@@ -143,8 +143,7 @@ export const LiveStreamSection: React.FC<LiveStreamSectionProps> = ({ currentFig
             
             {/* Quick Links Card */}
             <div className="bg-zinc-50 p-6 rounded-sm border border-zinc-200 shadow-sm space-y-4">
-              <h3 className="text-lg font-display font-black uppercase italic tracking-tighter text-zinc-900 flex items-center gap-2 border-b border-zinc-200 pb-3">
-                <Sparkles className="w-4 h-4 text-red-600" />
+              <h3 className="text-lg font-display font-black uppercase italic tracking-tighter text-zinc-900 border-b border-zinc-200 pb-3">
                 Enlaces Directos de Transmisión
               </h3>
               

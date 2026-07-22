@@ -18,7 +18,7 @@ export const EventsSchedule: React.FC<EventsScheduleProps> = ({ events, onWatchL
             <Calendar className="w-3.5 h-3.5" />
             <span>Calendario Oficial</span>
           </div>
-          <h2 className="text-3xl sm:text-5xl font-display font-black uppercase italic tracking-tighter text-zinc-900">
+          <h2 className="text-3xl sm:text-4xl font-display font-black uppercase italic tracking-tighter text-zinc-900">
             PRÓXIMAS <span className="text-red-600">JUGADAS</span> Y TORNEOS
           </h2>
           <p className="text-zinc-600 font-editorial italic text-base sm:text-lg mt-2">

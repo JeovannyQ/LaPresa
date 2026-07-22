@@ -21,7 +21,7 @@ export const LocationContact: React.FC = () => {
               <span>Ubicación y Contacto</span>
             </div>
 
-            <h2 className="text-3xl sm:text-5xl font-display font-black uppercase italic tracking-tighter text-zinc-900 leading-none">
+            <h2 className="text-3xl sm:text-4xl font-display font-black uppercase italic tracking-tighter text-zinc-900 leading-none">
               ¿CÓMO LLEGAR A <span className="text-red-600">LA PRESA</span>?
             </h2>
 

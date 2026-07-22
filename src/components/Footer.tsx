@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Radio, Heart, ExternalLink } from 'lucide-react';
-import logoImg from '../assets/images/gallera_la_presa_logo_1784737350948.jpg';
+import logoImg from '../assets/images/gallera_logo_new.jpeg';
 
 export const Footer: React.FC = () => {
   return (
@@ -28,30 +28,7 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Links */}
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs font-bold uppercase tracking-widest">
-            <a
-              href="https://twitch.tv/galleralapresa"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-900 hover:text-red-600 transition-colors flex items-center gap-1.5"
-            >
-              <Radio className="w-3.5 h-3.5 text-red-600" />
-              <span>Twitch Ruedo 1</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </a>
 
-            <a
-              href="https://twitch.tv/galleralapresa_ruedo2"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-900 hover:text-red-600 transition-colors flex items-center gap-1.5"
-            >
-              <Radio className="w-3.5 h-3.5 text-red-600" />
-              <span>Twitch Ruedo 2</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </a>
-          </div>
 
         </div>
 
