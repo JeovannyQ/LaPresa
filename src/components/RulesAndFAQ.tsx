@@ -7,7 +7,7 @@ export const RulesAndFAQ: React.FC = () => {
   const faqs = [
     {
       q: "¿Dónde puedo ver las transmisiones en vivo?",
-      a: "Puedes ver las peleas totalmente en vivo ingresando a nuestros canales oficiales de Twitch: twitch.tv/galleralapresa (Ruedo Principal) y twitch.tv/galleralapresa_ruedo2 (Cámara Secundaria). También transmitimos directamente a través de esta página web."
+      a: "Puedes ver las peleas totalmente en vivo directamente desde esta página web."
     },
     {
       q: "¿Cuáles son los días de jugada en Gallera La Presa?",

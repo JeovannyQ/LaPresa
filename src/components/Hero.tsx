@@ -5,10 +5,9 @@ import logoImg from '../assets/images/gallera_logo_new.jpeg';
 
 interface HeroProps {
   onWatchLiveClick: () => void;
-  onScheduleClick: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onWatchLiveClick, onScheduleClick }) => {
+export const Hero: React.FC<HeroProps> = ({ onWatchLiveClick }) => {
   return (
     <section id="hero" className="relative bg-zinc-50 text-zinc-900 overflow-hidden py-12 lg:py-20 border-b border-zinc-200">
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,7 +20,7 @@ export const Hero: React.FC<HeroProps> = ({ onWatchLiveClick, onScheduleClick })
 
             {/* Title */}
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black font-display uppercase italic tracking-tighter text-zinc-900 leading-none">
-              GALLERA <br />
+              CLUB GALLÍSTICO <br />
               <span className="text-red-600">LA PRESA</span>
             </h1>
 
@@ -38,7 +37,7 @@ export const Hero: React.FC<HeroProps> = ({ onWatchLiveClick, onScheduleClick })
               </div>
               <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-sm border border-zinc-200 shadow-sm">
                 <Video className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                <span className="font-semibold">Transmisión Twitch HD</span>
+                <span className="font-semibold">Transmisión HD propia</span>
               </div>
             </div>
 
@@ -53,13 +52,13 @@ export const Hero: React.FC<HeroProps> = ({ onWatchLiveClick, onScheduleClick })
               </button>
 
               <a
-                href="https://twitch.tv/galleralapresa"
+                href="#live-stream"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-zinc-100 text-zinc-900 font-bold uppercase tracking-widest text-xs rounded-sm border border-zinc-300 shadow-sm flex items-center justify-center gap-2 transition-colors"
               >
                 <Play className="w-4 h-4 fill-current text-red-600" />
-                <span>Twitch @galleralapresa</span>
+                <span>Ver transmisión en vivo</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
             </div>

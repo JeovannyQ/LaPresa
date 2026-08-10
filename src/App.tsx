@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { LiveStreamSection } from './components/LiveStreamSection';
-import { EventsSchedule } from './components/EventsSchedule';
+import { FightClipsSection } from './components/FightClipsSection';
 import { LocationContact } from './components/LocationContact';
 import { Footer } from './components/Footer';
-import { INITIAL_EVENTS } from './data/mockData';
+import { BroadcastPanel } from './components/BroadcastPanel';
 
 export default function App() {
   const [isLive] = useState(true);
+  const [broadcastPanelOpen, setBroadcastPanelOpen] = useState(false);
 
   const handleScrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -18,34 +19,36 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-red-600 selection:text-white">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-red-600 selection:text-white">
       
       {/* Sticky Navigation */}
       <Navbar
         isLive={isLive}
-        onNavigateToTwitch={() => window.open('https://twitch.tv/galleralapresa', '_blank')}
         onScrollTo={handleScrollTo}
+        onBroadcastClick={() => setBroadcastPanelOpen(true)}
       />
 
       {/* Main Content Sections */}
       <main>
         <Hero
           onWatchLiveClick={() => handleScrollTo('live-stream')}
-          onScheduleClick={() => handleScrollTo('schedule')}
         />
 
         <LiveStreamSection currentFightNumber={14} />
 
-        <EventsSchedule
-          events={INITIAL_EVENTS}
-          onWatchLive={() => handleScrollTo('live-stream')}
-        />
+        <FightClipsSection />
 
         <LocationContact />
       </main>
 
       {/* Footer */}
       <Footer />
+
+      {/* Admin Broadcast Panel (Slide-in Drawer) */}
+      <BroadcastPanel
+        isOpen={broadcastPanelOpen}
+        onClose={() => setBroadcastPanelOpen(false)}
+      />
 
     </div>
   );

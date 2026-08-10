@@ -6,7 +6,6 @@ export interface FightEvent {
   description: string;
   prizePool?: string;
   isLive: boolean;
-  twitchChannel: string;
   fightsCount: number;
 }
 
@@ -20,9 +19,4 @@ export interface FightMatch {
   status: 'upcoming' | 'in_progress' | 'completed';
   winner?: 'red' | 'blue' | 'draw';
   timeElapsed?: string;
-}
-
-export interface TwitchChannelConfig {
-  mainChannel: string;
-  secondaryChannel: string;
 }

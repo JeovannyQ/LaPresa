@@ -2,6 +2,16 @@ node_modules/
 build/
 dist/
 coverage/
+recordings/
+# Segmentos de video en vivo: se regeneran solos y en producción esta carpeta
+# crece sin parar mientras se transmite.
+hls/
+# Caché de Vite y paquetes de despliegue: son derivados de dist/, que ya se ignora.
+.vite/
+*_cpanel.zip
+# Contiene credenciales reales del cliente (correo, contraseña, clave de emisión).
+# NUNCA debe entrar al repositorio: este remoto está en GitHub.
+CanalyClave.docx
 .DS_Store
 *.log
 .env*

@@ -22,7 +22,7 @@ export const EventsSchedule: React.FC<EventsScheduleProps> = ({ events, onWatchL
             PRÓXIMAS <span className="text-red-600">JUGADAS</span> Y TORNEOS
           </h2>
           <p className="text-zinc-600 font-editorial italic text-base sm:text-lg mt-2">
-            No te pierdas ninguna jornada. Todas las grandes jugadas de Gallera La Presa se transmiten en vivo por Twitch.
+            No te pierdas ninguna jornada. Todas las grandes jugadas de Gallera La Presa se transmiten en vivo desde nuestra plataforma.
           </p>
         </div>
 
@@ -76,11 +76,11 @@ export const EventsSchedule: React.FC<EventsScheduleProps> = ({ events, onWatchL
                   className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-[0.2em] text-xs rounded-sm shadow-sm flex items-center justify-center gap-2 transition-colors"
                 >
                   <Radio className="w-3.5 h-3.5 text-white" />
-                  <span>Ver en Twitch</span>
+                  <span>Ver transmisión</span>
                 </button>
 
                 <a
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`📢 ¡Acompáñanos a la jugada de Gallera La Presa! Evento: ${evt.title} - ${evt.date}. Transmisión Twitch: https://twitch.tv/galleralapresa`)}`}
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`📢 ¡Acompáñanos a la jugada de Gallera La Presa! Evento: ${evt.title} - ${evt.date}. Transmisión: ${window.location.origin}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[11px] font-bold uppercase tracking-wider rounded-sm border border-zinc-300 flex items-center justify-center gap-2 transition-colors"

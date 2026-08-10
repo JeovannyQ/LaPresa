@@ -9,7 +9,6 @@ export const INITIAL_EVENTS: FightEvent[] = [
     description: 'Encuentro con las mejores traba del Cibao. Premios especiales para la pelea más rápida.',
     prizePool: 'RD$ 150,000 en Premios',
     isLive: true,
-    twitchChannel: 'galleralapresa',
     fightsCount: 24,
   },
   {
@@ -20,7 +19,6 @@ export const INITIAL_EVENTS: FightEvent[] = [
     description: 'Desafío inter-clubes con trabas invitadas de Santiago, La Vega y Moca.',
     prizePool: 'RD$ 300,000 acumulados',
     isLive: false,
-    twitchChannel: 'galleralapresa',
     fightsCount: 30,
   },
   {
@@ -31,7 +29,6 @@ export const INITIAL_EVENTS: FightEvent[] = [
     description: 'Peleas de gallos en todas las categorías de peso oficial.',
     prizePool: 'RD$ 80,000',
     isLive: false,
-    twitchChannel: 'galleralapresa',
     fightsCount: 18,
   }
 ];

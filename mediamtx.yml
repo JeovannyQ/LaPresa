@@ -1,0 +1,52 @@
+# MediaMTX — servidor de ingesta RTMP de La Presa
+# El celular (Larix Broadcaster) publica aquí; server.ts consume la señal con
+# ffmpeg y produce el HLS que ve el público. MediaMTX no sirve nada al público.
+#
+# Arranque:  ./mediamtx mediamtx.yml
+# Descarga:  https://github.com/bluenviron/mediamtx/releases
+#
+# OJO: este archivo usa el formato de configuración de MediaMTX v1.x
+# (authInternalUsers). Las versiones 0.x usaban publishUser/publishPass dentro
+# de cada path; si bajas una versión vieja, esto no le va a servir.
+
+logLevel: info
+logDestinations: [stdout]
+
+# ─── RTMP: la única puerta de entrada ────────────────────────────────────────
+rtmp: yes
+rtmpAddress: :1935
+rtmpEncryption: "no"
+
+# Protocolos de salida apagados: el HLS lo genera ffmpeg desde server.ts, y
+# dejar estos puertos abiertos sería exponer la señal sin control ni estadística.
+hls: no
+webrtc: no
+srt: no
+rtsp: no
+
+# ─── Autenticación ───────────────────────────────────────────────────────────
+# Sin esto, cualquiera que adivine la URL puede publicar en el canal y sacar al
+# aire lo que quiera. Cambia las dos claves por valores largos y aleatorios.
+authInternalUsers:
+  # El celular en la gallera. Es el único que puede publicar.
+  - user: gallera
+    pass: CAMBIAR-ESTA-CLAVE-POR-UNA-LARGA
+    ips: []
+    permissions:
+      - action: publish
+        path: live/gallera
+
+  # ffmpeg leyendo desde el propio servidor. Restringido a localhost: aunque se
+  # filtre la clave, no sirve desde fuera.
+  - user: interno
+    pass: CAMBIAR-ESTA-TAMBIEN
+    ips: ['127.0.0.1', '::1']
+    permissions:
+      - action: read
+        path: live/gallera
+
+# ─── Rutas ───────────────────────────────────────────────────────────────────
+paths:
+  # Debe coincidir con RTMP_INGEST_URL del .env
+  live/gallera:
+    source: publisher
