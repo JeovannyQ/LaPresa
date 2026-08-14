@@ -8,6 +8,8 @@
     "server": "tsx server.ts",
     "dev:full": "concurrently -n fe,be -c cyan,yellow \"npm run dev\" \"npm run server\"",
     "build": "vite build",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=server.js",
+    "start": "node server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"

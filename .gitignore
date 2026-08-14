@@ -1,6 +1,9 @@
 node_modules/
 build/
 dist/
+# Bundle de produccion del backend: lo genera "npm run build:server" en el
+# servidor, igual que dist/. Versionarlo solo trae conflictos.
+server.js
 coverage/
 recordings/
 # Segmentos de video en vivo: se regeneran solos y en producción esta carpeta
