@@ -23,6 +23,11 @@ hls: no
 webrtc: no
 srt: no
 rtsp: no
+# MoQ (Media over QUIC) viene encendido por defecto desde las versiones nuevas y
+# abre :8892 TCP/UDP y :8893 UDP. Ademas se genera un certificado auto.key en el
+# directorio de trabajo, escritura que el servicio de systemd bloquea a proposito
+# (ProtectSystem=strict). Apagado: aqui solo entra RTMP.
+moq: no
 
 # ─── Autenticación ───────────────────────────────────────────────────────────
 # Sin esto, cualquiera que adivine la URL puede publicar en el canal y sacar al

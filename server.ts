@@ -144,40 +144,42 @@ function requireAdmin(req: Request, res: Response, next: () => void): void {
   next();
 }
 
+/**
+ * Borra de una carpeta lo que pase de la retencion, pero SOLO las extensiones
+ * que genera la propia aplicacion.
+ *
+ * El filtro no es decorativo: sin el, la purga arrasa con cualquier archivo que
+ * haya caido en la carpeta. En la primera prueba real se llevo por delante un
+ * package.json que alguien habia dejado suelto en recordings/. Corre sin
+ * vigilancia al arrancar y cada 12 horas, asi que un borrado equivocado aqui no
+ * lo ve nadie hasta que se echa de menos el archivo.
+ */
+function purgeOldFiles(dir: string, extensions: string[], label: string): void {
+  if (!fs.existsSync(dir)) return;
+
+  const maxAge = RECORDINGS_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  for (const file of fs.readdirSync(dir)) {
+    if (!extensions.includes(path.extname(file).toLowerCase())) continue;
+
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) continue;
+
+    if (now - stat.mtimeMs > maxAge) {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ ${label} borrado (>${RECORDINGS_MAX_AGE_DAYS} dias): ${file}`);
+    }
+  }
+}
+
 function cleanOldRecordings(): void {
   try {
-    const maxAge = RECORDINGS_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
-    const now = Date.now();
-
-    // Check main recordings
-    if (fs.existsSync(RECORDINGS_DIR)) {
-      const files = fs.readdirSync(RECORDINGS_DIR);
-      for (const file of files) {
-        const filePath = path.join(RECORDINGS_DIR, file);
-        if (fs.statSync(filePath).isFile()) {
-          const stat = fs.statSync(filePath);
-          if (now - stat.mtimeMs > maxAge) {
-            fs.unlinkSync(filePath);
-            console.log(`🗑️ Deleted old recording (>15 days): ${file}`);
-          }
-        }
-      }
-    }
-
-    // Check clips
-    if (fs.existsSync(CLIPS_DIR)) {
-      const clips = fs.readdirSync(CLIPS_DIR);
-      for (const clipFile of clips) {
-        const clipPath = path.join(CLIPS_DIR, clipFile);
-        if (fs.statSync(clipPath).isFile()) {
-          const stat = fs.statSync(clipPath);
-          if (now - stat.mtimeMs > maxAge) {
-            fs.unlinkSync(clipPath);
-            console.log(`🗑️ Deleted old clip (>15 days): ${clipFile}`);
-          }
-        }
-      }
-    }
+    // Las grabaciones salen siempre como stream_<fecha>.mp4.
+    purgeOldFiles(RECORDINGS_DIR, ['.mp4'], 'Grabacion');
+    // Los clips son .webm o .mp4, cada uno con su .json de metadatos al lado.
+    purgeOldFiles(CLIPS_DIR, ['.mp4', '.webm', '.json'], 'Clip');
   } catch (err) {
     console.error('Error cleaning old recordings:', err);
   }
