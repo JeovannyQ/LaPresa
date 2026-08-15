@@ -50,12 +50,15 @@ authInternalUsers:
   # ffmpeg leyendo la señal desde el contenedor de la app. Antes esto era
   # ['127.0.0.1'] porque ambos procesos vivían en la misma máquina; en Docker cada
   # contenedor tiene su IP en la red bridge y el loopback dejaría fuera a ffmpeg.
-  # Se restringe a la subred interna del compose, que no es enrutable desde fuera:
-  # aunque se filtre la clave, no sirve desde internet. La subred está fijada en
-  # docker-compose.yml justamente para que este rango siga significando algo.
+  #
+  # Se restringe a la subred interna del compose, que no es enrutable desde fuera.
+  # Esto NO es decorativo: el 1935 está publicado a internet, así que sin este
+  # cerrojo una filtración de la clave interna permitiría leer la señal desde
+  # cualquier parte. La subred está fijada en docker-compose.yml justamente para
+  # que este rango siga significando algo; si se cambia allí, hay que cambiarla aquí.
   - user: interno
     pass: SIN-CONFIGURAR-RTMP-INTERNAL-PASS
-    ips: ['172.28.0.0/16']
+    ips: ['10.89.0.0/24']
     permissions:
       - action: read
         path: live/gallera

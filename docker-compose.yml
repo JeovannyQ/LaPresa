@@ -26,10 +26,22 @@ services:
     image: bluenviron/mediamtx:1.20.0
     restart: unless-stopped
 
-    # El único puerto que se publica al host. Traefik no sirve para esto: solo
-    # enruta HTTP/HTTPS y el RTMP es TCP crudo.
+    # El único puerto que se publica al host, y tiene que ser fijo.
+    #
+    # OJO: la forma corta "1935" (sin el mapeo) NO lo deja en la red interna —
+    # lo publica igual, pero en un puerto ALEATORIO del rango efímero que cambia
+    # en cada redespliegue, así que el celular no se puede configurar.
+    #
+    # Para ffmpeg este puerto ya es interno y no necesita estar publicado: los
+    # contenedores de la red "interna" se alcanzan por nombre de servicio. Lo que
+    # obliga a publicarlo es el CELULAR, que está en la gallera, fuera de Docker
+    # y fuera del servidor. Traefik no puede enrutarlo: solo habla HTTP/HTTPS y
+    # el RTMP es TCP crudo.
+    #
+    # Cerrarlo de verdad se hace en la Security List de la VCN de Oracle,
+    # limitando el origen a la IP de la gallera. Ver DEPLOY.md.
     ports:
-      - "1935"
+      - "1935:1935"
 
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
@@ -110,9 +122,14 @@ networks:
     # Subred fijada a propósito: mediamtx.yml restringe el usuario "interno" a
     # este rango, así que el rango tiene que ser estable. Si se cambia aquí, hay
     # que cambiarlo también allí o ffmpeg deja de poder leer la señal.
+    #
+    # Es 10.89 y no 172.x porque Docker reparte las redes que crea solo en
+    # 172.17-172.31: en un host de Dokploy con varios stacks, fijar un /16 ahí
+    # dentro choca tarde o temprano y el despliegue muere con "Pool overlaps
+    # with other one on this address space". Un /24 en 10.x se sale de ese pool.
     ipam:
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 10.89.0.0/24
 
   dokploy-network:
     external: true

@@ -196,6 +196,16 @@ function checkFFmpeg(): boolean {
   }
 }
 
+/**
+ * Tapa user/pass antes de devolver una URL RTMP al panel. La URL de ingesta lleva
+ * la clave interna en el query string y /api/stream/config la devolvía entera:
+ * acababa en la consola del navegador y en cualquier captura de pantalla o de red
+ * que hiciera el operador para pedir soporte.
+ */
+function redactCredentials(url: string): string {
+  return url.replace(/([?&](?:user|pass)=)[^&]*/gi, '$1***');
+}
+
 function listDshowDevices(): string {
   try {
     const result = execSync('ffmpeg -list_devices true -f dshow -i dummy 2>&1', {
@@ -437,7 +447,7 @@ app.get('/api/stream/config', requireAdmin, (_req: Request, res: Response) => {
     streamSourceUrl: STREAM_SOURCE_URL,
     dshowVideoDevice: DSHOW_VIDEO_DEVICE,
     dshowAudioDevice: DSHOW_AUDIO_DEVICE,
-    rtmpIngestUrl: RTMP_INGEST_URL,
+    rtmpIngestUrl: redactCredentials(RTMP_INGEST_URL),
     videoMaxHeight: VIDEO_MAX_HEIGHT,
     videoBitrate: VIDEO_BITRATE,
     hlsUrl: HLS_URL,

@@ -63,7 +63,12 @@ Son **dos** cortafuegos y hay que tocar los dos. Es el tropiezo clásico en Orac
 se abre la VCN, no funciona, y el motivo es que la imagen de Ubuntu trae sus
 propias reglas de iptables.
 
-1. **VCN → Security List → Ingress Rule:** origen `0.0.0.0/0`, TCP, puerto 1935.
+RTMP viaja sobre **TCP**. No abras UDP: MediaMTX no escucha nada por ahí.
+
+1. **VCN → Security List → Ingress Rule:**
+   - Source CIDR: `0.0.0.0/0` (o la IP de la gallera, ver más abajo)
+   - IP Protocol: **TCP**
+   - Destination Port Range: `1935`
 2. **En la máquina:**
 
 ```bash
@@ -131,9 +136,17 @@ dimensionado para alimentar a la CDN, no al público directamente.
 borran solos a los 40 s: en disco es desgaste puro, y el boot volume de Oracle tiene
 IOPS limitadas. Ocupan ~25 MB.
 
-**La subred `172.28.0.0/16` está fijada.** `mediamtx.yml` restringe el usuario
+**La subred `10.89.0.0/24` está fijada.** `mediamtx.yml` restringe el usuario
 `interno` a ese rango. Si se cambia en el compose hay que cambiarlo allí también o
-ffmpeg deja de poder leer la señal.
+ffmpeg deja de poder leer la señal. Es `10.x` y no `172.x` porque Docker reparte
+las redes que crea dentro de `172.17-172.31`, y fijar un rango ahí choca con otros
+stacks de Dokploy ("Pool overlaps with other one on this address space").
+
+**El `1935:1935` del compose tiene que ser un mapeo fijo.** La forma corta `"1935"`
+no deja el puerto en la red interna: lo publica en un puerto aleatorio que cambia
+en cada redespliegue, y entonces el celular no se puede configurar. Para ffmpeg el
+puerto ya es interno sin publicar nada; quien obliga a publicarlo es el celular,
+que está fuera del servidor.
 
 **En producción no se usa `tsx`.** `npm run build` empaqueta `server.ts` a
 `server.js` con esbuild y el contenedor corre `node server.js`, sin depender de
