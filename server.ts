@@ -18,7 +18,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // ─── Configuration ───────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.STREAM_SERVER_PORT || '3001', 10);
+// PORT lo inyectan las plataformas tipo Dokploy/Railpack; STREAM_SERVER_PORT es
+// el que fija el systemd del VPS y tiene prioridad para no cambiar ese despliegue.
+const PORT = parseInt(process.env.STREAM_SERVER_PORT || process.env.PORT || '3001', 10);
 let STREAM_SOURCE = process.env.STREAM_SOURCE || 'dshow';
 let STREAM_SOURCE_URL = process.env.STREAM_SOURCE_URL || '';
 let DSHOW_VIDEO_DEVICE = process.env.DSHOW_VIDEO_DEVICE || '';

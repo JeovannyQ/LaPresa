@@ -7,7 +7,7 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "server": "tsx server.ts",
     "dev:full": "concurrently -n fe,be -c cyan,yellow \"npm run dev\" \"npm run server\"",
-    "build": "vite build",
+    "build": "vite build && npm run build:server",
     "build:server": "esbuild server.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=server.js",
     "start": "node server.js",
     "preview": "vite preview",
