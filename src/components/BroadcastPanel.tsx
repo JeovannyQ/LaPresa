@@ -45,6 +45,10 @@ interface StreamStatus {
   currentRecordingFile: string | null;
   hasStreamKey: boolean;
   streamSource: string;
+  // El servidor ya lo mandaba pero el panel lo ignoraba: es lo que distingue
+  // "arrancando" de "esperando a que el celular publique", que son cosas muy
+  // distintas para quien está operando.
+  waitingForPublisher: boolean;
   activeClip: {
     fightNumber: number;
     title: string;
@@ -393,6 +397,18 @@ export const BroadcastPanel: React.FC<BroadcastPanelProps> = ({ isOpen, onClose 
   const cfg = statusConfig[currentStatus];
   const isLive = currentStatus === 'live';
   const isBusy = currentStatus === 'starting' || currentStatus === 'stopping';
+
+  // Con fuente RTMP, "starting" no es que algo esté fallando: ffmpeg reintenta
+  // cada 5 s hasta que el celular publique, y puede quedarse ahí indefinidamente
+  // porque el operador puede pulsar "iniciar" antes de encender Larix. Decir
+  // "CONECTANDO..." dejaba al operador esperando algo que dependía de él.
+  const waitingForPhone = currentStatus === 'starting' && !!streamStatus?.waitingForPublisher;
+  const statusLabel = waitingForPhone ? 'ESPERANDO SEÑAL DEL CELULAR' : cfg.label;
+
+  // La transmisión está viva en el servidor en todos estos estados, aunque aún no
+  // haya imagen. Si aquí se mostrara "iniciar", pulsarlo devuelve 409 "Stream is
+  // already active" y el operador se queda sin forma de detenerla.
+  const streamIsActive = currentStatus !== 'idle' && currentStatus !== 'error';
   const activeClip = streamStatus?.activeClip;
 
   if (!isOpen) return null;
@@ -445,7 +461,7 @@ export const BroadcastPanel: React.FC<BroadcastPanelProps> = ({ isOpen, onClose 
                 <div className="flex items-center gap-3">
                   <div className={`w-4 h-4 rounded-full ${cfg.color} ${cfg.pulse ? 'animate-pulse' : ''} shadow-lg`} />
                   <span className="text-sm font-black uppercase tracking-[0.2em] text-red-500">
-                    {cfg.label}
+                    {statusLabel}
                   </span>
                 </div>
                 {isLive && streamStatus && (
@@ -467,8 +483,21 @@ export const BroadcastPanel: React.FC<BroadcastPanelProps> = ({ isOpen, onClose 
               </div>
             )}
 
+            {/* El servidor está listo y la pelota está en el celular. Sin este
+                aviso el operador ve "conectando" indefinidamente y no tiene cómo
+                saber que falta encender Larix. */}
+            {waitingForPhone && (
+              <div className="bg-amber-950/30 border border-amber-700/40 rounded-sm p-3 mb-5 flex items-start gap-3">
+                <Radio className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+                <div className="text-xs text-amber-200/90 leading-relaxed">
+                  El servidor está listo y esperando. Abre <strong>Larix</strong> en
+                  el celular y pulsa transmitir; la señal entrará en unos segundos.
+                </div>
+              </div>
+            )}
+
             {/* Main action: start the self-hosted HLS stream */}
-            {!isLive && currentStatus !== 'stopping' ? (
+            {!streamIsActive ? (
               <div className="space-y-2">
                 <button
                   onClick={startStream}
