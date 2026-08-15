@@ -1,0 +1,121 @@
+# La Presa — despliegue en Dokploy (tipo "Compose").
+#
+#   Celular (Larix) ──rtmp:1935──> mediamtx
+#                                     │  red interna, nunca sale a internet
+#                                     v
+#                              app (server.js + ffmpeg) ──> 3 calidades HLS
+#                                     │                      /app/hls (tmpfs, RAM)
+#                                     │
+#                                     ├──> /live/*  ─── Traefik ──> espectadores
+#                                     └──> grabaciones mp4
+#                                          /app/recordings (volumen, 15 días)
+#
+# Variables a definir en Dokploy → Environment (las tres primeras son secretos):
+#   ADMIN_API_KEY        openssl rand -hex 32
+#   RTMP_PUBLISH_PASS    openssl rand -hex 16   → va en el celular (Larix)
+#   RTMP_INTERNAL_PASS   openssl rand -hex 16   → solo la usa ffmpeg
+#   APP_URL              https://lapresa.quitech.com.do
+
+services:
+  # ── Ingesta RTMP ───────────────────────────────────────────────────────────
+  # Es lo que faltaba por completo en el despliegue de Railpack: el celular no
+  # publica contra Node, publica aquí, y ffmpeg consume de aquí.
+  mediamtx:
+    # Fijada, no "latest": el formato authInternalUsers de mediamtx.yml es el de
+    # la 1.x y está verificado contra esta versión. Un salto mayor podría cambiarlo.
+    image: bluenviron/mediamtx:1.20.0
+    restart: unless-stopped
+
+    # El único puerto que se publica al host. Traefik no sirve para esto: solo
+    # enruta HTTP/HTTPS y el RTMP es TCP crudo.
+    ports:
+      - "1935"
+
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+
+    # Las claves no viven en el YAML (está en git). Si estas variables no llegan,
+    # quedan los centinelas del archivo y la publicación falla cerrada.
+    environment:
+      MTX_AUTHINTERNALUSERS_0_PASS: ${RTMP_PUBLISH_PASS:?falta RTMP_PUBLISH_PASS}
+      MTX_AUTHINTERNALUSERS_1_PASS: ${RTMP_INTERNAL_PASS:?falta RTMP_INTERNAL_PASS}
+
+    networks:
+      interna:
+
+  # ── API + ffmpeg + frontend ────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+
+    depends_on:
+      - mediamtx
+
+    environment:
+      STREAM_SERVER_PORT: "3001"
+      APP_URL: ${APP_URL:-https://lapresa.quitech.com.do}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?falta ADMIN_API_KEY}
+
+      # En producción la fuente es siempre el celular publicando en MediaMTX.
+      STREAM_SOURCE: rtmp
+      # El host es "mediamtx" (nombre del servicio), no 127.0.0.1: en Docker cada
+      # contenedor tiene su propio loopback. Las credenciales van como ?user=&pass=
+      # porque con la forma rtmp://usuario:clave@host ffmpeg no las manda y
+      # MediaMTX rechaza la conexión. Verificado contra v1.20.0.
+      RTMP_INGEST_URL: "rtmp://mediamtx:1935/live/gallera?user=interno&pass=${RTMP_INTERNAL_PASS:?falta RTMP_INTERNAL_PASS}"
+      RTMP_RETRY_SECONDS: "5"
+
+      HLS_DIR: /app/hls
+      RECORDINGS_DIR: /app/recordings
+      HLS_SEGMENT_SECONDS: "4"
+      HLS_LIST_SIZE: "10"
+
+      VIDEO_MAX_HEIGHT: "720"
+      VIDEO_BITRATE: 2500k
+      VIDEO_BUFSIZE: 5000k
+      VIDEO_BITRATE_480: 1200k
+      VIDEO_BITRATE_360: 700k
+
+    volumes:
+      # Las grabaciones del cliente: 15 días de retención. Sin este volumen se
+      # borraban en cada redespliegue, que es lo que pasaba con Railpack.
+      - recordings:/app/recordings
+
+    # Los segmentos se reescriben cada 4 s durante 6-8 horas y se borran solos a
+    # los 40 s: en disco es puro desgaste, y el boot volume de Oracle tiene IOPS
+    # limitadas. Ocupan ~25 MB; 512 MB sobra de largo.
+    # mode=1777 (como /tmp) porque el tmpfs se monta de root y el proceso corre
+    # como "node": sin esto ffmpeg no puede escribir.
+    tmpfs:
+      - /app/hls:size=512m,mode=1777
+
+    # ffmpeg con 3 codificaciones en paralelo puede comerse la máquina entera.
+    # Este techo deja aire para MediaMTX y para poder entrar por SSH.
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+
+    networks:
+      interna:
+      # Traefik (el proxy de Dokploy) solo ve los contenedores de esta red. El
+      # dominio se asigna en Dokploy → Domains, apuntando a este servicio y al
+      # puerto 3001; Dokploy inyecta las etiquetas y resuelve el TLS.
+      dokploy-network:
+
+networks:
+  interna:
+    # Subred fijada a propósito: mediamtx.yml restringe el usuario "interno" a
+    # este rango, así que el rango tiene que ser estable. Si se cambia aquí, hay
+    # que cambiarlo también allí o ffmpeg deja de poder leer la señal.
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+  dokploy-network:
+    external: true
+
+volumes:
+  recordings:

@@ -827,19 +827,48 @@ app.get('/api/devices', requireAdmin, (_req: Request, res: Response) => {
   res.json({ devices: listDshowDevices() });
 });
 
+// ─── HLS en vivo ─────────────────────────────────────────────────────────────
+// Estas cabeceras las hacía nginx antes de que el despliegue pasara a contenedor;
+// aquí importan MÁS, no menos, porque ahora el video lo sirve Node. Con "no-store"
+// cada espectador pegaba contra el proceso cada 4 s y nada era cacheable: es lo
+// que impide poner una CDN delante, y la CDN es lo único que sostiene un aforo
+// grande. Los max-age son los que permiten colapsar miles de peticiones en una.
+//
+// El .ts NO se cachea "para siempre" a propósito: los nombres seg_00001.ts se
+// reinician en cada emisión y un TTL largo serviría video de la jornada anterior.
 app.use('/live', express.static(HLS_DIR, {
-  setHeaders: (res) => res.setHeader('Cache-Control', 'no-store, max-age=0'),
+  setHeaders: (res, filePath) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (filePath.endsWith('.m3u8')) {
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Cache-Control', 'public, max-age=2');
+    } else if (filePath.endsWith('.ts')) {
+      res.setHeader('Content-Type', 'video/mp2t');
+      res.setHeader('Cache-Control', 'public, max-age=60');
+    }
+  },
 }));
+
+// Sin emisión activa la carpeta está vacía y la petición seguía hasta el catch-all
+// del SPA: el reproductor recibía index.html con un 200 donde esperaba un playlist,
+// así que el error que veía el usuario no tenía relación con la causa real.
+app.use('/live', (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'No hay transmisión activa.' });
+});
 
 // ─── Serve Frontend (production build) ───────────────────────────────────────
 const DIST_DIR = path.resolve(__dirname, 'dist');
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
   // SPA catch-all: serve index.html for any non-API route
-  app.get('*', (_req: Request, res: Response) => {
-    if (!_req.path.startsWith('/api/')) {
-      res.sendFile(path.join(DIST_DIR, 'index.html'));
+  app.get('*', (req: Request, res: Response) => {
+    // Una ruta /api/ inexistente no puede caer en el SPA, pero antes tampoco se
+    // respondía nada: la petición quedaba colgada hasta el timeout del cliente.
+    if (req.path.startsWith('/api/')) {
+      res.status(404).json({ error: 'Endpoint no encontrado.' });
+      return;
     }
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
   });
   console.log(`📁 Serving frontend from: ${DIST_DIR}`);
 }

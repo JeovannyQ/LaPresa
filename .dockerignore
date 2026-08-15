@@ -1,0 +1,35 @@
+# Lo que NO debe entrar al contexto de build.
+#
+# node_modules es el crítico: la carpeta local tiene binarios nativos de Windows
+# (@rollup/rollup-win32-x64-msvc, lightningcss-win32-x64-msvc). Si se copiaran,
+# pisarían los de linux-arm64 que instala "npm ci" y el build reventaría con un
+# "exec format error" difícil de rastrear.
+node_modules
+dist
+server.js
+
+# Datos de ejecución: se montan como volumen/tmpfs, no se hornean en la imagen.
+hls
+recordings
+
+.git
+.gitignore
+.gitattributes
+
+# Credenciales reales. .env.example sí entra: es plantilla, no tiene secretos.
+.env
+.env.*
+!.env.example
+
+.vite
+.firebase
+.firebaserc
+firebase.json
+
+# Documentación y paquetes del despliegue viejo de cPanel: no los usa el runtime.
+docs
+*.docx
+*.pdf
+*_cpanel.zip
+make_manual_files.*
+Manual_Usuario_LaPresa.*

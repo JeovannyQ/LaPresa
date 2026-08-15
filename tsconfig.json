@@ -22,5 +22,16 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  // Sin esto "npm run lint" es inservible: los segmentos de video HLS terminan
+  // en .ts igual que TypeScript, así que tsc intentaba compilar cada seg_000NN.ts
+  // y devolvía cientos de "File appears to be binary". Mismo motivo para
+  // recordings/ (clips .ts) y dist/.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "hls",
+    "recordings",
+    "server.js"
+  ]
 }

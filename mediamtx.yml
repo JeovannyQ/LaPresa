@@ -31,21 +31,31 @@ moq: no
 
 # ─── Autenticación ───────────────────────────────────────────────────────────
 # Sin esto, cualquiera que adivine la URL puede publicar en el canal y sacar al
-# aire lo que quiera. Cambia las dos claves por valores largos y aleatorios.
+# aire lo que quiera.
+#
+# Las dos claves NO se escriben aquí: llegan por entorno desde Dokploy, con
+#   MTX_AUTHINTERNALUSERS_0_PASS  y  MTX_AUTHINTERNALUSERS_1_PASS
+# (ver docker-compose.yml). Los valores de abajo son centinelas a propósito: si
+# el entorno no llega, la autenticación falla y nadie publica, en vez de quedar
+# el canal abierto con una clave conocida.
 authInternalUsers:
   # El celular en la gallera. Es el único que puede publicar.
   - user: gallera
-    pass: CAMBIAR-ESTA-CLAVE-POR-UNA-LARGA
+    pass: SIN-CONFIGURAR-RTMP-PUBLISH-PASS
     ips: []
     permissions:
       - action: publish
         path: live/gallera
 
-  # ffmpeg leyendo desde el propio servidor. Restringido a localhost: aunque se
-  # filtre la clave, no sirve desde fuera.
+  # ffmpeg leyendo la señal desde el contenedor de la app. Antes esto era
+  # ['127.0.0.1'] porque ambos procesos vivían en la misma máquina; en Docker cada
+  # contenedor tiene su IP en la red bridge y el loopback dejaría fuera a ffmpeg.
+  # Se restringe a la subred interna del compose, que no es enrutable desde fuera:
+  # aunque se filtre la clave, no sirve desde internet. La subred está fijada en
+  # docker-compose.yml justamente para que este rango siga significando algo.
   - user: interno
-    pass: CAMBIAR-ESTA-TAMBIEN
-    ips: ['127.0.0.1', '::1']
+    pass: SIN-CONFIGURAR-RTMP-INTERNAL-PASS
+    ips: ['172.28.0.0/16']
     permissions:
       - action: read
         path: live/gallera
