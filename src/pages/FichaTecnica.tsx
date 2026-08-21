@@ -3,7 +3,7 @@ import { Calendar, Clock, MapPin, Radio, ExternalLink, MessageSquare } from 'luc
 import { HistorialJornadas } from '../components/HistorialJornadas';
 import { GALLERA, whatsappUrl } from '../data/gallera';
 import { getApiBase } from '../lib/api';
-import fotoGallera from '../assets/images/gallera_logo_new.jpeg';
+import fotoGallera from '../assets/images/gallera_local.jpg';
 
 interface FichaTecnicaProps {
   onIrAlVivo: () => void;
@@ -41,21 +41,24 @@ export const FichaTecnica: React.FC<FichaTecnicaProps> = ({ onIrAlVivo }) => {
     <main className="bg-zinc-950 min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
         <div className="bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden">
-          {/* Cabecera.
-              object-CONTAIN, no cover: lo que hay en assets es el logo del club,
-              y recortarlo para llenar un marco apaisado le corta la cresta al
-              gallo y las letras de los lados. Cuando el cliente mande la foto
-              real de la gallera (la del techado con el letrero, como en su
-              diseño), esto pasa a object-cover y el marco se llena de verdad. */}
-          {/* Alto fijo y bajo, no un 16/7: el logo es cuadrado y en un marco
-              apaisado quedaban 250 px de negro muerto a cada lado, que se lee
-              como una foto rota. Una banda estrecha se lee como cabecera. El
-              degradado evita que el fondo sea un rectángulo negro plano. */}
-          <div className="relative h-36 sm:h-44 bg-[radial-gradient(ellipse_at_center,#27272a_0%,#000000_70%)] flex items-center justify-center p-3">
+          {/* Cabecera: la foto del techado con el letrero, como en el diseño
+              que mandó el cliente. Sustituye al logo, que estaba aquí de
+              provisional y obligaba a un marco estrecho con object-contain.
+
+              La caja lleva el MISMO aspecto que el archivo (476x176) para que
+              object-cover no recorte nada: la bandera de arriba y la base del
+              techado entran enteras. Si algún día se cambia la foto por otra de
+              proporción distinta, hay que tocar el aspect o volverá a recortar.
+
+              La foto viene de un recorte del diseño del cliente y es de baja
+              resolución (476 px de ancho para una caja que en escritorio pasa
+              de 800): se ve algo blanda. Sustituir el archivo por uno mayor con
+              el mismo encuadre basta, no hay que tocar nada de aquí. */}
+          <div className="relative aspect-[476/176] bg-zinc-950">
             <img
               src={fotoGallera}
               alt={`Gallera ${GALLERA.nombre}`}
-              className="max-w-full max-h-full object-contain"
+              className="w-full h-full object-cover"
             />
           </div>
 
