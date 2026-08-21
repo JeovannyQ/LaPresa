@@ -48,12 +48,23 @@ export const Navbar: React.FC<NavbarProps> = ({ rutaActiva, onNavegar, onBroadca
         </button>
 
         <nav className="flex items-center gap-1 ml-auto">
-          <button onClick={() => onNavegar('portada')} className={claseEnlace('portada')}>
+          {/* aria-current: cuál de los dos está abierto se dice aquí sólo con el
+              fondo gris, que un lector de pantalla no ve. Sin esto los dos se
+              anuncian igual y no hay forma de saber en cuál estás. */}
+          <button
+            onClick={() => onNavegar('portada')}
+            className={claseEnlace('portada')}
+            aria-current={rutaActiva === 'portada' ? 'page' : undefined}
+          >
             <Radio className="w-3.5 h-3.5 text-red-500" />
             <span>En vivo</span>
           </button>
 
-          <button onClick={() => onNavegar('ficha')} className={claseEnlace('ficha')}>
+          <button
+            onClick={() => onNavegar('ficha')}
+            className={claseEnlace('ficha')}
+            aria-current={rutaActiva === 'ficha' ? 'page' : undefined}
+          >
             <FileText className="w-3.5 h-3.5 text-red-500" />
             <span>Ficha</span>
           </button>
