@@ -622,6 +622,46 @@ function probeDurationSeconds(filePath: string): number {
   }
 }
 
+/** Nombre que escribe MediaMTX para cada archivo: 2026-08-23_19-30-00.mp4 */
+const PATRON_JORNADA = /^(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})\.mp4$/;
+
+/**
+ * Todos los .mp4 de jornada que hay en disco, miren donde miren.
+ *
+ * MediaMTX los mete bajo un arbol que sale del nombre de la ruta: como la
+ * nuestra se llama "live/gallera", acaban en jornadas/live/gallera/. Se
+ * recorre en vez de dar por hecha esa profundidad, porque el dia que cambie
+ * el nombre de la ruta el historial se quedaria vacio sin decir por que.
+ *
+ * Se indexa por nombre de archivo y no por ruta completa: el nombre ya lleva
+ * fecha y hora, es unico, y es lo que viaja en la URL de descarga.
+ */
+function buscarJornadas(): Map<string, string> {
+  const encontrados = new Map<string, string>();
+  if (!fs.existsSync(JORNADAS_DIR)) return encontrados;
+
+  // Tope de profundidad por si alguien deja un enlace simbolico circular ahi
+  // dentro: sin el, esto se cuelga y con el se queda corto, que es preferible.
+  const recorrer = (dir: string, queda: number): void => {
+    if (queda < 0) return;
+    for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+      const completa = path.join(dir, entrada.name);
+      if (entrada.isDirectory()) {
+        recorrer(completa, queda - 1);
+      } else if (entrada.isFile() && PATRON_JORNADA.test(entrada.name)) {
+        if (!encontrados.has(entrada.name)) encontrados.set(entrada.name, completa);
+      }
+    }
+  };
+
+  try {
+    recorrer(JORNADAS_DIR, 4);
+  } catch (err) {
+    console.error('No se pudo recorrer', JORNADAS_DIR, err);
+  }
+  return encontrados;
+}
+
 app.get('/api/historial', (_req: Request, res: Response) => {
   try {
     if (!fs.existsSync(JORNADAS_DIR)) {
@@ -634,12 +674,11 @@ app.get('/api/historial', (_req: Request, res: Response) => {
     // una fila por fecha, así que se agrupan aquí y no en el navegador.
     const porFecha = new Map<string, { filename: string; startedAt: string; durationSeconds: number; sizeBytes: number }[]>();
 
-    for (const filename of fs.readdirSync(JORNADAS_DIR)) {
-      const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})\.mp4$/);
+    for (const [filename, filePath] of buscarJornadas()) {
+      const match = filename.match(PATRON_JORNADA);
       if (!match) continue;
 
       const [, fecha, hh, mm, ss] = match;
-      const filePath = path.join(JORNADAS_DIR, filename);
       const stat = fs.statSync(filePath);
       if (!stat.isFile()) continue;
 
@@ -680,8 +719,11 @@ app.get('/api/historial/:filename', (req: Request, res: Response) => {
     return;
   }
 
-  const filePath = path.join(JORNADAS_DIR, filename);
-  if (!fs.existsSync(filePath)) {
+  // Se resuelve contra lo que hay indexado en disco en vez de concatenar la
+  // ruta: así solo puede servirse un archivo que exista de verdad, vaya en la
+  // subcarpeta que vaya (MediaMTX las crea a partir del nombre de la ruta).
+  const filePath = buscarJornadas().get(filename);
+  if (!filePath || !fs.existsSync(filePath)) {
     res.status(404).json({ error: 'Jornada no encontrada' });
     return;
   }

@@ -78,7 +78,14 @@ paths:
 
     # /recordings es el MISMO volumen que la app monta en /app/recordings (ver
     # docker-compose.yml), así que la web sirve estos archivos sin copiarlos.
-    recordPath: /recordings/jornadas/%Y-%m-%d_%H-%M-%S
+    #
+    # El %path NO es decorativo: MediaMTX 1.20 se niega a arrancar sin él
+    # ("'recordPath' must contain %path") y el contenedor entra en bucle de
+    # reinicio, que deja el RTMP sin ingesta. Como esta ruta se llama
+    # "live/gallera", con barra, %path crea DOS niveles de carpeta:
+    #   /recordings/jornadas/live/gallera/2026-08-23_19-30-00.mp4
+    # Por eso el servidor busca los .mp4 en subcarpetas y no solo en jornadas/.
+    recordPath: /recordings/jornadas/%path/%Y-%m-%d_%H-%M-%S
     recordFormat: fmp4
 
     # 24h en vez de la 1h por defecto: una jornada dura 4-5 horas y con el corte
