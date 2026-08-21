@@ -1,0 +1,526 @@
+<title>Emisión en Vivo La Presa</title>
+<style>
+  /* ── Tokens: tema claro en :root ────────────────────────────────────────── */
+  :root {
+    --ground:      #F7F3EF;
+    --surface:     #FFFFFF;
+    --surface-alt: #F0E9E2;
+    --line:        #DED3C8;
+    --ink:         #191313;
+    --ink-soft:    #6E625C;
+    --accent:      #A80D26;
+    --accent-soft: #FBEAEC;
+    --gold:        #8A6716;
+    --gold-soft:   #FAF0D8;
+    --shadow:      0 1px 2px rgba(25,19,19,.06), 0 8px 24px rgba(25,19,19,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #131011;
+      --surface:     #1C1819;
+      --surface-alt: #262021;
+      --line:        #362E30;
+      --ink:         #F4EEE9;
+      --ink-soft:    #A2958F;
+      --accent:      #E63B4F;
+      --accent-soft: #2A1518;
+      --gold:        #D9AE55;
+      --gold-soft:   #2A2113;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #131011;
+    --surface:     #1C1819;
+    --surface-alt: #262021;
+    --line:        #362E30;
+    --ink:         #F4EEE9;
+    --ink-soft:    #A2958F;
+    --accent:      #E63B4F;
+    --accent-soft: #2A1518;
+    --gold:        #D9AE55;
+    --gold-soft:   #2A2113;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  /* ── Base ───────────────────────────────────────────────────────────────── */
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 80px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .display {
+    font-family: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    font-style: italic;
+    font-weight: 900;
+    letter-spacing: -.025em;
+    text-wrap: balance;
+    line-height: 1.05;
+  }
+
+  .mono {
+    font-family: Consolas, "SF Mono", ui-monospace, "Liberation Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 2px; }
+
+  /* ── Cabecera ───────────────────────────────────────────────────────────── */
+  header { padding: 56px 0 40px; border-bottom: 3px solid var(--accent); }
+
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 14px;
+  }
+  header h1 { font-size: clamp(38px, 9vw, 62px); margin: 0 0 18px; text-transform: uppercase; }
+  header h1 .thin { color: var(--ink-soft); display: block; }
+  .lede { font-size: 19px; color: var(--ink-soft); margin: 0; max-width: 54ch; }
+
+  /* ── Secciones ──────────────────────────────────────────────────────────── */
+  section { padding: 48px 0 8px; }
+
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .sec-head h2 { font-size: clamp(25px, 5.5vw, 34px); margin: 0; text-transform: uppercase; }
+  .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    padding: 5px 11px; border-radius: 3px; white-space: nowrap;
+  }
+  .tag-once { background: var(--gold-soft); color: var(--gold); border: 1px solid var(--gold); }
+  .tag-always { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+  .sec-note { color: var(--ink-soft); margin: 0 0 28px; max-width: 58ch; }
+
+  /* ── Cabecera de opción (celular / computadora) ─────────────────────────── */
+  .opcion-head {
+    display: flex; align-items: center; gap: 12px;
+    margin: 36px 0 6px; padding-bottom: 10px;
+    border-bottom: 2px solid var(--line);
+  }
+  .opcion-head .letra {
+    font-family: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    font-style: italic; font-weight: 900; font-size: 15px;
+    background: var(--accent); color: #FFF;
+    width: 30px; height: 30px; flex: none;
+    display: grid; place-items: center; border-radius: 3px;
+  }
+  .opcion-head h3 { margin: 0; font-size: 20px; font-weight: 700; }
+  .opcion-head .cual { color: var(--ink-soft); font-weight: 400; }
+  .opcion-note { color: var(--ink-soft); font-size: 16px; margin: 0 0 22px; max-width: 58ch; }
+
+  /* ── Pasos ──────────────────────────────────────────────────────────────── */
+  .steps { display: flex; flex-direction: column; gap: 20px; margin: 0; padding: 0; list-style: none; counter-reset: paso; }
+
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    padding: 22px 24px 24px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 18px;
+    counter-increment: paso;
+  }
+  .step::before {
+    content: counter(paso);
+    font-family: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    font-style: italic; font-weight: 900; font-size: 42px; line-height: .9;
+    color: var(--accent);
+    grid-row: 1 / span 2;
+    font-variant-numeric: tabular-nums;
+  }
+  .step h4 { margin: 0; font-size: 19px; font-weight: 700; align-self: center; }
+  .step .body { grid-column: 2; }
+  .step p { margin: 8px 0 0; color: var(--ink-soft); }
+  .step p strong { color: var(--ink); }
+  .step p em { color: var(--ink); font-style: normal; font-weight: 600; }
+
+  /* ── Tarjeta de datos ───────────────────────────────────────────────────── */
+  .datos {
+    background: var(--surface-alt);
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    padding: 24px;
+    margin: 0 0 28px;
+  }
+  .datos h3 {
+    margin: 0 0 4px; font-size: 13px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .datos .hint { margin: 0 0 20px; font-size: 15px; color: var(--ink-soft); }
+  .campo { padding: 14px 0; border-top: 1px solid var(--line); }
+  .campo:first-of-type { border-top: none; padding-top: 4px; }
+  .campo .etiqueta {
+    font-size: 11px; font-weight: 700; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--ink-soft); display: block; margin-bottom: 6px;
+  }
+  .campo .valor {
+    font-size: 15px; font-weight: 600; color: var(--ink);
+    word-break: break-all; display: block;
+  }
+  .blanco { color: var(--accent); border-bottom: 2px dotted var(--accent); padding-bottom: 2px; }
+
+  /* ── Ajustes de calidad ─────────────────────────────────────────────────── */
+  .ajustes { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 15px; }
+  .ajustes th, .ajustes td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); }
+  .ajustes th { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; }
+  .ajustes td:last-child { font-weight: 700; white-space: nowrap; }
+
+  /* ── Aviso ──────────────────────────────────────────────────────────────── */
+  .aviso {
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    padding: 18px 20px;
+    margin: 24px 0 0;
+  }
+  .aviso p { margin: 0; font-size: 16px; color: var(--ink); }
+  .aviso .titulo { font-weight: 700; color: var(--accent); display: block; margin-bottom: 4px; }
+
+  /* ── Problemas ──────────────────────────────────────────────────────────── */
+  .problemas { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+  .problema {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 18px 22px;
+  }
+  .problema:first-child { border-radius: 4px 4px 0 0; }
+  .problema:last-child { border-radius: 0 0 4px 4px; }
+  .problema + .problema { border-top: none; }
+  .problema .que { font-weight: 700; margin: 0 0 6px; }
+  .problema .como { margin: 0; color: var(--ink-soft); font-size: 16px; }
+  .problema .donde {
+    font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--gold); display: block; margin-bottom: 5px;
+  }
+
+  /* ── Consejos ───────────────────────────────────────────────────────────── */
+  .consejos { margin: 8px 0 0; padding: 0 0 0 22px; }
+  .consejos li { margin-bottom: 12px; color: var(--ink-soft); }
+  .consejos li strong { color: var(--ink); }
+  .consejos li::marker { color: var(--accent); }
+
+  footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-soft); font-size: 15px;
+  }
+  footer p { margin: 0 0 8px; }
+
+  @media (max-width: 520px) {
+    body { font-size: 16px; padding: 0 16px 60px; }
+    .step { padding: 18px; gap: 4px 14px; }
+    .step::before { font-size: 34px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Club Gallístico La Presa</p>
+    <h1 class="display">Emitir en vivo<span class="thin">desde el celular o la PC</span></h1>
+    <p class="lede">Todo lo que hace falta para sacar al aire una jornada. La primera parte se prepara una sola vez; la segunda se repite en cada transmisión.</p>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <h2 class="display">Antes de empezar</h2>
+    </div>
+    <p class="sec-note">Se puede transmitir de tres maneras y las tres funcionan igual de bien. Elige una según lo que tengas a mano.</p>
+
+    <ul class="consejos">
+      <li><strong>Con el celular</strong> usando <em>Prism Live Studio</em>. Es la que usamos en La Presa y la que explican primero estas instrucciones.</li>
+      <li><strong>Con el celular</strong> usando <em>Larix Broadcaster</em>. Sirve igual; cambia solo la forma de escribir los datos.</li>
+      <li><strong>Con una computadora</strong> usando <em>OBS Studio</em>. Conviene cuando hay cámara externa, varias tomas o se quiere añadir rótulos.</li>
+      <li><strong>Internet estable</strong> en cualquiera de los dos casos. El WiFi del local si es bueno; si no, datos móviles.</li>
+      <li><strong>Los datos de acceso</strong> del recuadro que viene a continuación. Se entregan aparte y no se comparten.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2 class="display">Configuración</h2>
+      <span class="tag tag-once">Una sola vez</span>
+    </div>
+    <p class="sec-note">Esto se deja preparado una vez y el programa lo recuerda. No hay que repetirlo en cada jornada.</p>
+
+    <div class="datos">
+      <h3>Datos del canal</h3>
+      <p class="hint">Cópialos exactamente como están, sin espacios ni cambios. Una sola letra distinta y no conecta.</p>
+
+      <div class="campo">
+        <span class="etiqueta">Dirección del servidor</span>
+        <span class="valor mono">rtmp://lapresa.quitech.com.do:1935/live</span>
+      </div>
+      <div class="campo">
+        <span class="etiqueta">Nombre de la transmisión</span>
+        <span class="valor mono">gallera?user=gallera&amp;pass=<span class="blanco">CLAVE</span></span>
+      </div>
+      <div class="campo">
+        <span class="etiqueta">Clave del panel de administración</span>
+        <span class="valor mono blanco">CLAVE DE ADMINISTRADOR</span>
+      </div>
+
+      <div class="aviso">
+        <p><span class="titulo">Son dos claves distintas y no se intercambian</span>La <strong>clave del panel</strong> se escribe solo en la página, en el navegador. En el celular nunca. Si la app de transmitir pide una «clave», la que va ahí es la del <em>nombre de la transmisión</em>, no esta. Para distinguirlas de un vistazo: la del panel es bastante más larga.</p>
+      </div>
+    </div>
+
+    <!-- ── Opción A: celular con Prism ── -->
+    <div class="opcion-head">
+      <span class="letra">A</span>
+      <h3>Celular <span class="cual">· Prism Live Studio</span></h3>
+    </div>
+    <p class="opcion-note">Prism pide los dos datos <strong>en campos separados</strong>. Es justo lo contrario que Larix, y es donde más se equivoca la gente: no juntes nada, cada dato en su casilla.</p>
+
+    <ol class="steps">
+      <li class="step">
+        <h4>Instalar la aplicación</h4>
+        <div class="body">
+          <p>Búscala como <em>Prism Live Studio</em> en Play Store o App Store. Es gratis. Ábrela, acepta que use la cámara y el micrófono, y entra aunque sea sin crear cuenta.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Elegir transmisión personalizada</h4>
+        <div class="body">
+          <p>En la pantalla donde ofrece YouTube, Facebook y demás, busca la opción de <strong>RTMP</strong> o <strong>Personalizado</strong> (según la versión aparece como <em>Custom RTMP</em>). Esa es la que hay que usar: La Presa no va por ninguna red social.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Rellenar los dos campos</h4>
+        <div class="body">
+          <p>Aparecen dos casillas. Se rellenan así, cada dato entero en la suya:</p>
+          <table class="ajustes">
+            <tr><th>URL de transmisión</th><td>La dirección del servidor</td></tr>
+            <tr><th>Clave de transmisión</th><td>El nombre de la transmisión</td></tr>
+          </table>
+          <p>El nombre de la transmisión va <strong>completo</strong>, con su signo de interrogación y su <span class="mono">&amp;</span>, tal como está en el recuadro de datos. Parece raro escrito ahí, pero es correcto.</p>
+          <div class="aviso">
+            <p><span class="titulo">Lo que más falla</span>Poner en «Clave de transmisión» la clave del panel de administración. Con eso el servidor rechaza la conexión y el panel se queda en «Esperando señal del celular» para siempre.</p>
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Ajustar la calidad</h4>
+        <div class="body">
+          <p>En los ajustes de la transmisión, déjalo así:</p>
+          <table class="ajustes">
+            <tr><th>Resolución</th><td>1280 × 720</td></tr>
+            <tr><th>Velocidad (bitrate)</th><td>2500 kbps</td></tr>
+            <tr><th>Cuadros por segundo</th><td>30</td></tr>
+          </table>
+        </div>
+      </li>
+    </ol>
+
+    <!-- ── Opción B: celular con Larix ── -->
+    <div class="opcion-head">
+      <span class="letra">B</span>
+      <h3>Celular <span class="cual">· Larix Broadcaster</span></h3>
+    </div>
+    <p class="opcion-note">Larix hace lo contrario que Prism: junta los dos datos en un solo campo, separados por una barra.</p>
+
+    <ol class="steps">
+      <li class="step">
+        <h4>Instalar la aplicación</h4>
+        <div class="body">
+          <p>Búscala como <em>Larix Broadcaster</em> en Play Store o App Store. Es gratis y el desarrollador es Softvelum. Ábrela y acepta que use la cámara y el micrófono.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Crear la conexión</h4>
+        <div class="body">
+          <p>Toca el <strong>engranaje</strong> arriba a la derecha, entra en <strong>Connections</strong> y pulsa <strong>New connection</strong>.</p>
+          <p>En <strong>Name</strong> escribe <em>La Presa</em>. En <strong>URL</strong> pega la dirección del servidor, luego una barra <span class="mono">/</span> y a continuación el nombre de la transmisión. Todo seguido, en un solo campo.</p>
+          <p>Guarda y comprueba que la conexión aparece marcada como activa.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Ajustar la calidad</h4>
+        <div class="body">
+          <p>En los ajustes, busca el apartado de video y déjalo así:</p>
+          <table class="ajustes">
+            <tr><th>Resolución</th><td>1280 × 720</td></tr>
+            <tr><th>Velocidad (bitrate)</th><td>2500 kbps</td></tr>
+            <tr><th>Cuadros por segundo</th><td>30</td></tr>
+          </table>
+        </div>
+      </li>
+    </ol>
+
+    <!-- ── Opción C: OBS ── -->
+    <div class="opcion-head">
+      <span class="letra">C</span>
+      <h3>Computadora <span class="cual">· OBS Studio</span></h3>
+    </div>
+    <p class="opcion-note">OBS mantiene los dos datos en campos separados, igual que Prism.</p>
+
+    <ol class="steps">
+      <li class="step">
+        <h4>Instalar OBS Studio</h4>
+        <div class="body">
+          <p>Descárgalo gratis desde <strong>obsproject.com</strong> e instálalo. Si al abrirlo ofrece un asistente de configuración automática, puedes cancelarlo: los valores se ponen a mano en los pasos siguientes.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Configurar la conexión</h4>
+        <div class="body">
+          <p>Entra en <strong>Ajustes</strong> (abajo a la derecha) y luego en <strong>Emisión</strong>. Rellena así:</p>
+          <table class="ajustes">
+            <tr><th>Servicio</th><td>Personalizado</td></tr>
+            <tr><th>Servidor</th><td>La dirección del servidor</td></tr>
+            <tr><th>Clave de retransmisión</th><td>El nombre de la transmisión</td></tr>
+          </table>
+          <p>Deja <strong>sin marcar</strong> la casilla de usar autenticación. Los datos de acceso ya van dentro del nombre de la transmisión.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Ajustar la calidad</h4>
+        <div class="body">
+          <p>En <strong>Salida</strong>, pon la velocidad de video en <strong>2500 kbps</strong>. En <strong>Video</strong>, deja así:</p>
+          <table class="ajustes">
+            <tr><th>Resolución de salida</th><td>1280 × 720</td></tr>
+            <tr><th>Cuadros por segundo</th><td>30</td></tr>
+          </table>
+          <p>Pulsa <strong>Aplicar</strong> y luego <strong>Aceptar</strong>. Antes de transmitir, añade la cámara en el recuadro <em>Fuentes</em>.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="aviso">
+      <p><span class="titulo">No subas la calidad aunque el equipo lo permita</span>Más resolución no se nota en pantalla de celular, que es donde ve la mayoría, y sí hace que la señal se corte cuando el internet flojea.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2 class="display">Cada transmisión</h2>
+      <span class="tag tag-always">Siempre</span>
+    </div>
+    <p class="sec-note">Cuatro pasos, en este orden, sin importar si emites desde el celular o desde la computadora.</p>
+
+    <ol class="steps">
+      <li class="step">
+        <h4>Encender el emisor primero</h4>
+        <div class="body">
+          <p><strong>En el celular:</strong> abre Prism (o Larix), colócalo donde va a quedar fijo y pulsa el botón de transmitir.</p>
+          <p><strong>En la computadora:</strong> abre OBS y pulsa <strong>Iniciar transmisión</strong>, abajo a la derecha.</p>
+          <p>Sabrás que conectó porque aparece un contador de tiempo corriendo. En OBS, además, se ve la velocidad en kb/s en la barra inferior.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Iniciar en la página</h4>
+        <div class="body">
+          <p>Entra a <strong>lapresa.quitech.com.do</strong>, pulsa <strong>Emitir (Admin)</strong> arriba y escribe la clave de administrador.</p>
+          <p>En el panel que se abre, pulsa <strong>Iniciar transmisión propia</strong>.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Comprobar que se ve</h4>
+        <div class="body">
+          <p>El panel debe pasar a <strong>En vivo</strong> con un cronómetro corriendo. Cierra el panel con la <strong>✕</strong> y baja hasta <em>Transmisión en vivo</em>: ahí tiene que verse la imagen.</p>
+          <p>Tarda entre diez y quince segundos en aparecer. Es normal, no lo vuelvas a pulsar.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <h4>Al terminar, apagar en este orden</h4>
+        <div class="body">
+          <p>Primero en la página: abre el panel y pulsa <strong>Detener transmisión</strong>. Después detén el emisor, sea Prism, Larix u OBS.</p>
+          <div class="aviso">
+            <p><span class="titulo">El orden importa</span>Si apagas primero el emisor, el servidor se queda buscando la señal y reintentando sin parar. Página primero, cámara después.</p>
+          </div>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2 class="display">Si algo falla</h2>
+    </div>
+    <p class="sec-note">Lo que pasa casi siempre, y qué hacer.</p>
+
+    <div class="problemas">
+      <div class="problema">
+        <span class="donde">Los dos</span>
+        <p class="que">El panel dice «Esperando señal del celular» y no cambia</p>
+        <p class="como">El servidor está bien; lo que falta es el emisor. Revisa que la app esté transmitiendo de verdad, con su contador corriendo. Si se cerró o se apagó la pantalla, vuelve a iniciarla. Y si es la primera vez que se configura ese teléfono, comprueba la clave: es el fallo número uno.</p>
+      </div>
+
+      <div class="problema">
+        <span class="donde">Los dos</span>
+        <p class="que">Da error al conectar</p>
+        <p class="como">Casi siempre es la dirección o la clave mal copiadas. Compáralas carácter por carácter con el recuadro de datos, sobre todo el signo de interrogación y el «&amp;». En Prism y en OBS, mira además que cada dato esté en su campo y no los dos juntos en uno. Si todo está bien, prueba cambiando de WiFi a datos móviles: algunas redes de locales bloquean este tipo de conexión.</p>
+      </div>
+
+      <div class="problema">
+        <span class="donde">OBS</span>
+        <p class="que">Dice que no encuentra el servidor</p>
+        <p class="como">La dirección quedó mal escrita o incompleta. Vuelve a Ajustes → Emisión y pégala de nuevo entera, empezando por <span class="mono">rtmp://</span> y sin espacios al principio ni al final.</p>
+      </div>
+
+      <div class="problema">
+        <span class="donde">Los dos</span>
+        <p class="que">La imagen se ve entrecortada o se congela</p>
+        <p class="como">Es la conexión a internet. Baja la velocidad a 1500 kbps y acércate al router. Si estás con datos móviles, busca un punto con mejor señal.</p>
+      </div>
+
+      <div class="problema">
+        <span class="donde">Los dos</span>
+        <p class="que">Se ve en la página pero sin sonido</p>
+        <p class="como">En el celular, revisa que la app tenga permiso de micrófono. En OBS, mira el <em>Mezclador de audio</em>: si las barras no se mueven, la fuente de sonido está silenciada o no seleccionada.</p>
+      </div>
+
+      <div class="problema">
+        <span class="donde">Los dos</span>
+        <p class="que">Se cortó la señal a mitad de jornada</p>
+        <p class="como">No hay que reiniciar nada en la página. En cuanto el emisor vuelva a transmitir, la señal se retoma sola en unos segundos.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2 class="display">Consejos</h2>
+    </div>
+    <p class="sec-note">Cosas aprendidas que evitan sustos en jornadas largas.</p>
+
+    <ul class="consejos">
+      <li><strong>Deja el celular enchufado.</strong> Transmitir consume mucha batería; en seis horas no aguanta solo.</li>
+      <li><strong>No bloquees la pantalla</strong> ni abras otras aplicaciones mientras la app transmite. Debe quedarse al frente.</li>
+      <li><strong>Activa el modo avión con WiFi encendido</strong> si transmites por WiFi desde el celular: así una llamada entrante no corta la emisión.</li>
+      <li><strong>Fija bien la cámara.</strong> Un soporte o trípode barato mejora más la transmisión que cualquier ajuste de calidad.</li>
+      <li><strong>Si usas OBS, no apagues ni suspendas la computadora</strong> ni la pongas a hacer otras tareas pesadas durante la jornada.</li>
+      <li><strong>Haz una prueba de diez minutos</strong> el día antes de una jornada importante, con todo montado igual que el día real.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Cada jornada se graba <strong>sola</strong>, desde el momento en que el celular empieza a emitir y sin que nadie tenga que pulsar nada. No depende del botón del panel.</p>
+    <p>Las grabaciones quedan guardadas <strong>15 días</strong> y se pueden ver y descargar desde la ficha técnica de la gallera durante ese plazo.</p>
+  </footer>
+
+</div>
