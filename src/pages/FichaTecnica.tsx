@@ -3,7 +3,8 @@ import { Calendar, Clock, MapPin, Radio, ExternalLink, MessageSquare } from 'luc
 import { HistorialJornadas } from '../components/HistorialJornadas';
 import { GALLERA, whatsappUrl } from '../data/gallera';
 import { getApiBase } from '../lib/api';
-import fotoGallera from '../assets/images/gallera_local.jpg';
+import fotoRuedo from '../assets/images/gallera_ruedo.jpg';
+import fotoAmbiente from '../assets/images/gallera_ambiente.jpg';
 
 interface FichaTecnicaProps {
   onIrAlVivo: () => void;
@@ -41,24 +42,23 @@ export const FichaTecnica: React.FC<FichaTecnicaProps> = ({ onIrAlVivo }) => {
     <main className="bg-zinc-950 min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
         <div className="bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden">
-          {/* Cabecera: la foto del techado con el letrero, como en el diseño
-              que mandó el cliente. Sustituye al logo, que estaba aquí de
-              provisional y obligaba a un marco estrecho con object-contain.
+          {/* Cabecera: el ruedo vacío, que es la foto de perfil que mandó el
+              cliente. Antes había aquí el logo del club, y luego un recorte de
+              su diseño a 476 px que se veía blando; esta es la original.
 
-              La caja lleva el MISMO aspecto que el archivo (476x176) para que
-              object-cover no recorte nada: la bandera de arriba y la base del
-              techado entran enteras. Si algún día se cambia la foto por otra de
-              proporción distinta, hay que tocar el aspect o volverá a recortar.
+              16/9 sobre un archivo 4/3: hay que sacrificar una cuarta parte del
+              alto. Con 4/3 la cabecera medía 630 px en escritorio y empujaba
+              toda la información fuera de pantalla.
 
-              La foto viene de un recorte del diseño del cliente y es de baja
-              resolución (476 px de ancho para una caja que en escritorio pasa
-              de 800): se ve algo blanda. Sustituir el archivo por uno mayor con
-              el mismo encuadre basta, no hay que tocar nada de aquí. */}
-          <div className="relative aspect-[476/176] bg-zinc-950">
+              object-TOP, no el centro: centrado se comía la mitad del cartel
+              colgado del techo, que es lo que identifica al club de un vistazo.
+              Anclado arriba entra el cartel entero y el ruedo completo, y lo
+              que se pierde son las escaleras del primer plano. */}
+          <div className="relative aspect-[16/9] bg-zinc-950">
             <img
-              src={fotoGallera}
-              alt={`Gallera ${GALLERA.nombre}`}
-              className="w-full h-full object-cover"
+              src={fotoRuedo}
+              alt={`Ruedo del ${GALLERA.nombreCompleto}`}
+              className="w-full h-full object-cover object-top"
             />
           </div>
 
@@ -149,6 +149,21 @@ export const FichaTecnica: React.FC<FichaTecnicaProps> = ({ onIrAlVivo }) => {
               <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
               Escribir por WhatsApp
             </a>
+          </div>
+
+          {/* Secundaria: el público en plena jugada. Va dentro de la tarjeta y
+              a sangre, cerrándola, porque suelta entre la tarjeta y el
+              historial quedaba flotando sin pertenecer a ninguna de las dos.
+
+              2/1 y no 16/9 como la cabecera: así se lee como banda de cierre y
+              no compite con la foto de perfil. Recorta poco de un 4/3, que en
+              esta foto importa —la gente llega casi hasta el borde de arriba—. */}
+          <div className="relative aspect-[2/1] border-t border-zinc-800 bg-zinc-950">
+            <img
+              src={fotoAmbiente}
+              alt={`Público en una jugada del ${GALLERA.nombreCompleto}`}
+              className="w-full h-full object-cover"
+            />
           </div>
         </div>
       </div>
