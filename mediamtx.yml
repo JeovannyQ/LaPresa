@@ -68,3 +68,27 @@ paths:
   # Debe coincidir con RTMP_INGEST_URL del .env
   live/gallera:
     source: publisher
+
+    # ─── Grabación de la jornada ─────────────────────────────────────────────
+    # Graba MediaMTX, no el ffmpeg de server.ts, y es a propósito: ese ffmpeg
+    # solo existe mientras el operador haya pulsado "Iniciar" en el panel, así
+    # que la noche que se le olvide no queda grabación de nada. MediaMTX graba
+    # todo lo que el celular publique, sin que nadie toque un botón.
+    record: yes
+
+    # /recordings es el MISMO volumen que la app monta en /app/recordings (ver
+    # docker-compose.yml), así que la web sirve estos archivos sin copiarlos.
+    recordPath: /recordings/jornadas/%Y-%m-%d_%H-%M-%S
+    recordFormat: fmp4
+
+    # 24h en vez de la 1h por defecto: una jornada dura 4-5 horas y con el corte
+    # por defecto saldría partida en cinco archivos, cuando la web muestra una
+    # fila por noche. No deja archivos infinitos porque MediaMTX abre uno nuevo
+    # cada vez que el celular reconecta.
+    recordSegmentDuration: 24h
+
+    # 15 días, la retención pactada. La purga la hace MediaMTX y NO server.ts:
+    # estos archivos los crea el contenedor de mediamtx (como root) y borrarlos
+    # desde la app, que corre como "node" en otro contenedor, dependería de unos
+    # permisos que no controlamos. Leerlos sí puede, que es lo único que necesita.
+    recordDeleteAfter: 360h

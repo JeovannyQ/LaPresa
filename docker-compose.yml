@@ -45,6 +45,11 @@ services:
 
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
+      # Las jornadas grabadas van al MISMO volumen que la app monta en
+      # /app/recordings, que es quien las sirve a la web. Sin compartirlo se
+      # quedarían dentro del contenedor de mediamtx y se perderían en el
+      # siguiente redespliegue.
+      - recordings:/recordings
 
     # Las claves no viven en el YAML (está en git). Si estas variables no llegan,
     # quedan los centinelas del archivo y la publicación falla cerrada.

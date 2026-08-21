@@ -4,7 +4,6 @@ import { AlertCircle, Radio, RefreshCw, ShieldCheck, Video } from 'lucide-react'
 import { LiveChat } from './LiveChat';
 
 interface LiveStreamSectionProps {
-  currentFightNumber?: number;
   apiBase?: string;
 }
 
@@ -21,7 +20,6 @@ const getApiBase = () => (
 );
 
 export const LiveStreamSection: React.FC<LiveStreamSectionProps> = ({
-  currentFightNumber = 1,
   apiBase = getApiBase(),
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -119,11 +117,13 @@ export const LiveStreamSection: React.FC<LiveStreamSectionProps> = ({
                   <p className="text-zinc-400 text-sm mt-2 max-w-md">La señal aparecerá aquí cuando el operador inicie la emisión.</p>
                 </div>
               )}
+              {/* Aquí iba también "Pelea #N", pero el número venía cableado en
+                  App.tsx y no lo movía nadie: decía "Pelea #14" toda la noche,
+                  cualquier noche. Un dato inventado en pantalla es peor que
+                  ninguno, así que se quedó solo el estado de la señal. */}
               <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/80 px-3 py-1.5 rounded-sm border border-white/20 text-[10px] font-bold tracking-widest uppercase">
                 <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-red-600 animate-ping' : 'bg-zinc-500'}`} />
                 <span>{isLive ? 'En vivo' : 'Disponible pronto'}</span>
-                <span className="text-zinc-500">|</span>
-                <span>Pelea #{currentFightNumber}</span>
               </div>
             </div>
 

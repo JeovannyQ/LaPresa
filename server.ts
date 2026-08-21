@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess, execSync, execFileSync } from 'child_process';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -26,7 +26,10 @@ let STREAM_SOURCE_URL = process.env.STREAM_SOURCE_URL || '';
 let DSHOW_VIDEO_DEVICE = process.env.DSHOW_VIDEO_DEVICE || '';
 let DSHOW_AUDIO_DEVICE = process.env.DSHOW_AUDIO_DEVICE || '';
 const RECORDINGS_DIR = path.resolve(process.env.RECORDINGS_DIR || './recordings');
-const CLIPS_DIR = path.join(RECORDINGS_DIR, 'clips');
+// Las jornadas las escribe MediaMTX, no esta app (ver mediamtx.yml). Aquí solo
+// se listan y se sirven: los archivos son de root y el proceso corre como node,
+// así que borrarlos no es cosa nuestra —de la retención se encarga MediaMTX—.
+const JORNADAS_DIR = path.join(RECORDINGS_DIR, 'jornadas');
 const HLS_DIR = path.resolve(process.env.HLS_DIR || './hls');
 const HLS_SEGMENT_SECONDS = Math.max(2, parseInt(process.env.HLS_SEGMENT_SECONDS || '4', 10));
 const HLS_LIST_SIZE = Math.max(3, parseInt(process.env.HLS_LIST_SIZE || '10', 10));
@@ -78,14 +81,17 @@ let keepStreaming = false;
 let waitingForPublisher = false;
 let rtmpRetryTimer: NodeJS.Timeout | null = null;
 
-// Clip state
-interface ActiveClip {
-  fightNumber: number;
-  title: string;
-  startTime: Date;
-  filename: string;
-}
-let activeClip: ActiveClip | null = null;
+// Últimas líneas de diagnóstico de ffmpeg del intento en curso. Sin esto un
+// "exited code 1" no dice nada: ffmpeg explica el motivo por stderr y antes se
+// descartaba entero, así que un fallo de grabación era imposible de investigar
+// después de ocurrido.
+const FFMPEG_TAIL_LINES = 25;
+let ffmpegStderrTail: string[] = [];
+// Con RTMP el proceso se relanza cada RTMP_RETRY_SECONDS mientras nadie publica,
+// y cada intento repite el mismo error. Volcarlo siempre llenaría el log de
+// Docker con miles de líneas idénticas al día y enterraría lo que sí importa.
+let lastFailureSignature = '';
+let repeatedFailures = 0;
 
 // Live Chat State (in-memory)
 interface ChatMessage {
@@ -95,18 +101,13 @@ interface ChatMessage {
   timestamp: string;
   isVIP?: boolean;
 }
-const chatMessages: ChatMessage[] = [
-  { id: '1', user: 'Gallero_Santiaguero', text: '¡Saludos desde Santiago! Listo para las peleas.', timestamp: new Date(Date.now() - 300000).toISOString(), isVIP: true },
-  { id: '2', user: 'Pedro_LaPresa', text: 'Hoy promete ser una gran cartelera en la Presa de Tavera.', timestamp: new Date(Date.now() - 120000).toISOString() },
-  { id: '3', user: 'Manolo_Bonao', text: '¿En qué número de pelea van?', timestamp: new Date(Date.now() - 60000).toISOString() }
-];
+// Arranca vacio a proposito. Antes venia con tres mensajes de ejemplo que el
+// visitante leia como comentarios de gente real que no estaba ahi.
+const chatMessages: ChatMessage[] = [];
 
 // Ensure directories exist
 if (!fs.existsSync(RECORDINGS_DIR)) {
   fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
-}
-if (!fs.existsSync(CLIPS_DIR)) {
-  fs.mkdirSync(CLIPS_DIR, { recursive: true });
 }
 if (!fs.existsSync(HLS_DIR)) {
   fs.mkdirSync(HLS_DIR, { recursive: true });
@@ -180,8 +181,6 @@ function cleanOldRecordings(): void {
   try {
     // Las grabaciones salen siempre como stream_<fecha>.mp4.
     purgeOldFiles(RECORDINGS_DIR, ['.mp4'], 'Grabacion');
-    // Los clips son .webm o .mp4, cada uno con su .json de metadatos al lado.
-    purgeOldFiles(CLIPS_DIR, ['.mp4', '.webm', '.json'], 'Clip');
   } catch (err) {
     console.error('Error cleaning old recordings:', err);
   }
@@ -222,7 +221,10 @@ function buildFFmpegArgs(): string[] {
   const recordingFile = getRecordingFilename();
   currentRecordingFile = recordingFile;
 
-  const args: string[] = [];
+  // Sin esto cada arranque escupe la versión y la línea de "configuration" de
+  // ffmpeg, que sola pasa de 1.500 caracteres. Con el reintento cada 5 s eso
+  // sepulta los mensajes de error en el log.
+  const args: string[] = ['-hide_banner'];
   let videoMap = '0:v';
   let audioMap = '0:a';
 
@@ -342,21 +344,56 @@ function spawnFFmpeg(): void {
   }
 
   const args = buildFFmpegArgs();
-  console.log('\n🎬 Starting FFmpeg:', ['ffmpeg', ...args].join(' '));
+  // Redactado: la URL de ingesta lleva la clave interna en el query string, y
+  // esta línea se imprime en cada arranque —cada 5 s mientras nadie publica—.
+  // Sin esto la clave queda escrita miles de veces en el log de Docker, que
+  // cualquiera con acceso al VPS puede leer y que además se copia al pedir
+  // soporte.
+  console.log('\n🎬 Starting FFmpeg:', redactCredentials(['ffmpeg', ...args].join(' ')));
 
   const proc = spawn('ffmpeg', args, { cwd: RECORDINGS_DIR, stdio: ['pipe', 'pipe', 'pipe'] });
   ffmpegProcess = proc;
+  ffmpegStderrTail = [];
 
-  proc.stderr?.on('data', (data: Buffer) => {
-    const msg = data.toString();
-    if (msg.includes('frame=') || msg.includes('speed=')) {
+  // ffmpeg no escribe en límites de línea: un bloque puede cortar un mensaje por
+  // la mitad y continuarlo en el siguiente. Sin reensamblarlos, el MISMO error
+  // salía repartido de forma distinta en cada intento y la firma de abajo no
+  // coincidía nunca, así que el anti-repetición no servía de nada.
+  let stderrCarry = '';
+
+  const handleStderrLine = (raw: string): void => {
+    const line = raw.trim();
+    if (!line) return;
+
+    // Las líneas de progreso son el latido: con RTMP son la única prueba de que
+    // están llegando cuadros de verdad, no solo de que el proceso arrancó.
+    if (line.startsWith('frame=') || line.includes('speed=')) {
       waitingForPublisher = false;
       if (streamStatus === 'starting') {
         streamStatus = 'live';
         streamStartTime = new Date();
         console.log('🔴 Stream is LIVE!');
       }
+      return;
     }
+
+    const clean = redactCredentials(line);
+    ffmpegStderrTail.push(clean);
+    if (ffmpegStderrTail.length > FFMPEG_TAIL_LINES) ffmpegStderrTail.shift();
+
+    // Ya emitiendo, cualquier aviso de ffmpeg es raro y vale la pena verlo en el
+    // momento. Mientras se espera al celular no: ahí el ruido es constante y el
+    // volcado se hace una sola vez al cerrar (ver 'close').
+    if (!waitingForPublisher) console.error('   ffmpeg │', clean);
+  };
+
+  proc.stderr?.on('data', (data: Buffer) => {
+    // El progreso se separa con \r y los mensajes con \n: se cortan los tres casos.
+    const parts = (stderrCarry + data.toString()).split(/\r\n|\r|\n/);
+    // El último trozo puede ser una línea a medias; se guarda para el siguiente
+    // bloque en vez de tratarlo como si estuviera completa.
+    stderrCarry = parts.pop() ?? '';
+    for (const raw of parts) handleStderrLine(raw);
   });
 
   // Sin este manejador, un fallo al lanzar el proceso (ffmpeg ausente, permisos)
@@ -368,15 +405,43 @@ function spawnFFmpeg(): void {
   });
 
   proc.on('close', (code: number | null) => {
+    // Lo que quedó sin salto de línea al morir el proceso. Suele ser justo el
+    // último mensaje de error, que es el que más falta hace.
+    if (stderrCarry) {
+      handleStderrLine(stderrCarry);
+      stderrCarry = '';
+    }
     console.log(`⏹️ FFmpeg exited code ${code}`);
     ffmpegProcess = null;
     currentRecordingFile = null;
+
+    // El motivo de la salida. Se compara con el intento anterior para no repetir
+    // el mismo volcado cada 5 s: la primera vez se explica entero, y a partir de
+    // ahí solo se recuerda de tanto en tanto que sigue fallando igual.
+    if (code !== 0 && ffmpegStderrTail.length > 0) {
+      // Las direcciones de memoria que ffmpeg mete en cada etiqueta —"[in#0 @
+      // 00000238da27e500]"— cambian en cada arranque. Sin borrarlas, dos fallos
+      // idénticos nunca dan la misma firma y el anti-repetición no sirve de nada.
+      const signature = ffmpegStderrTail.slice(-3).join(' ┃ ').replace(/@ *(0x)?[0-9a-f]{6,}/gi, '@ …');
+      if (signature !== lastFailureSignature) {
+        lastFailureSignature = signature;
+        repeatedFailures = 0;
+        console.error('   ── ffmpeg salió con error. Últimas líneas: ──');
+        for (const line of ffmpegStderrTail) console.error('   │', line);
+        console.error('   ────────────────────────────────────────────');
+      } else if (++repeatedFailures % 60 === 0) {
+        console.error(`   (el mismo fallo de ffmpeg se repite; ${repeatedFailures} veces ya) ${signature}`);
+      }
+    } else if (code === 0) {
+      lastFailureSignature = '';
+      repeatedFailures = 0;
+    }
 
     if (keepStreaming && STREAM_SOURCE === 'rtmp') {
       waitingForPublisher = true;
       streamStatus = 'starting';
       streamStartTime = null;
-      console.log(`📡 Sin señal en ${RTMP_INGEST_URL}. Reintento en ${RTMP_RETRY_SECONDS}s...`);
+      console.log(`📡 Sin señal en ${redactCredentials(RTMP_INGEST_URL)}. Reintento en ${RTMP_RETRY_SECONDS}s...`);
       rtmpRetryTimer = setTimeout(() => {
         rtmpRetryTimer = null;
         if (keepStreaming) spawnFFmpeg();
@@ -432,12 +497,6 @@ app.get('/api/stream/status', (_req: Request, res: Response) => {
     // conozca podría publicar en el canal. Solo se expone en /api/stream/config.
     waitingForPublisher,
     hlsUrl: HLS_URL,
-    activeClip: activeClip ? {
-      fightNumber: activeClip.fightNumber,
-      title: activeClip.title,
-      durationSeconds: Math.floor((Date.now() - activeClip.startTime.getTime()) / 1000),
-      filename: activeClip.filename,
-    } : null,
   });
 });
 
@@ -546,180 +605,194 @@ app.post('/api/stream/stop', requireAdmin, (_req: Request, res: Response) => {
   res.json({ message: 'Deteniendo transmisión...', status: 'stopping' });
 });
 
-// ─── Fight Clips API (Manual Recording per Fight) ───────────────────────────
+// ─── Historial de jornadas ───────────────────────────────────────────────────
+// Lo que la ficha técnica muestra como "Historial de jugadas": una fila por
+// noche, con su duración y su video. Los archivos los graba MediaMTX solo, sin
+// que el operador tenga que pulsar nada, así que aquí no hay estado que mantener.
 
-// Start Clip
-app.post('/api/clips/start', requireAdmin, (req: Request, res: Response) => {
-  const { fightNumber = 1, title = 'Combate en Vivo' } = req.body;
-  
-  if (activeClip) {
-    res.status(409).json({ error: 'Ya hay un clip de pelea grabándose actualmente', activeClip });
-    return;
+// ffprobe sobre un archivo de 4-5 horas no es gratis y la ficha lo pide en cada
+// carga. La clave incluye tamaño y mtime para que la jornada que aún se está
+// grabando se vuelva a medir en lugar de quedarse con la duración de hace un rato.
+const durationCache = new Map<string, number>();
+
+function probeDurationSeconds(filePath: string): number {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    return 0;
   }
 
-  const clipFilename = `clip_pelea_${fightNumber}_${getTimestamp()}.webm`;
-  const clipPath = path.join(CLIPS_DIR, clipFilename);
-
-  activeClip = {
-    fightNumber: Number(fightNumber),
-    title: String(title),
-    startTime: new Date(),
-    filename: clipFilename,
-  };
-
-  fs.writeFileSync(clipPath, '');
-
-  console.log(`🎬 Clip iniciado para Pelea #${fightNumber}: "${title}" (${clipFilename})`);
-  res.json({ message: 'Grabación de clip iniciada', clip: activeClip });
-});
-
-// Stop Clip
-app.post('/api/clips/stop', requireAdmin, (req: Request, res: Response) => {
-  if (!activeClip) {
-    res.status(400).json({ error: 'No hay ningún clip activo grabándose' });
-    return;
-  }
-
-  const clipPath = path.join(CLIPS_DIR, activeClip.filename);
-  const duration = Math.floor((Date.now() - activeClip.startTime.getTime()) / 1000);
-
-  const metaPath = clipPath.replace('.webm', '.json');
-  const metadata = {
-    fightNumber: activeClip.fightNumber,
-    title: activeClip.title,
-    createdAt: activeClip.startTime.toISOString(),
-    completedAt: new Date().toISOString(),
-    durationSeconds: duration,
-    filename: activeClip.filename,
-    expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-  };
-  fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
-
-  console.log(`⏹️ Clip finalizado para Pelea #${activeClip.fightNumber} (${duration}s)`);
-  const finishedClip = { ...activeClip, durationSeconds: duration };
-  activeClip = null;
-
-  const finalStat = fs.existsSync(clipPath) ? fs.statSync(clipPath) : null;
-  res.json({ message: 'Clip de combate guardado correctamente', clip: finishedClip, sizeMB: finalStat ? Math.round((finalStat.size / (1024 * 1024)) * 100) / 100 : 0 });
-});
-
-// Upload Clip Chunk (from browser MediaRecorder)
-app.post('/api/clips/upload-chunk', requireAdmin, (req: Request, res: Response) => {
-  const { chunkBase64, filename } = req.body;
-  if (!chunkBase64 || !filename) {
-    res.status(400).json({ error: 'chunkBase64 and filename are required' });
-    return;
-  }
+  const key = `${filePath}:${stat.size}:${stat.mtimeMs}`;
+  const cached = durationCache.get(key);
+  if (cached !== undefined) return cached;
 
   try {
-    const filePath = path.join(CLIPS_DIR, filename);
-    const buffer = Buffer.from(chunkBase64, 'base64');
-    fs.appendFileSync(filePath, buffer);
-    const stat = fs.statSync(filePath);
-    res.json({ success: true, bytesAdded: buffer.length, totalBytes: stat.size, file: filename });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    // execFileSync y no execSync: el nombre va como argumento, sin pasar por el
+    // shell. Aunque los nombres los genere MediaMTX y no un usuario, meter una
+    // ruta en una cadena de shell es la clase de atajo que luego se copia a un
+    // sitio donde sí importa.
+    const out = execFileSync(
+      'ffprobe',
+      ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', filePath],
+      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim();
 
-// List Clips
-app.get('/api/clips', (_req: Request, res: Response) => {
+    const seconds = Math.max(0, Math.round(Number(out)));
+    if (!Number.isFinite(seconds)) return 0;
+    durationCache.set(key, seconds);
+    return seconds;
+  } catch {
+    // Un fMP4 a medio escribir (la jornada en curso) puede no responder todavía.
+    return 0;
+  }
+}
+
+app.get('/api/historial', (_req: Request, res: Response) => {
   try {
-    if (!fs.existsSync(CLIPS_DIR)) {
-      res.json({ clips: [] });
+    if (!fs.existsSync(JORNADAS_DIR)) {
+      res.json({ jornadas: [], maxAgeDays: RECORDINGS_MAX_AGE_DAYS });
       return;
     }
 
-    const files = fs.readdirSync(CLIPS_DIR).filter(f => f.endsWith('.webm') || f.endsWith('.mp4'));
-    const clips = files.map(filename => {
-      const filePath = path.join(CLIPS_DIR, filename);
+    // Una noche puede dejar más de un archivo: MediaMTX abre uno nuevo cada vez
+    // que el celular reconecta, y en la gallera se cae la señal. La web enseña
+    // una fila por fecha, así que se agrupan aquí y no en el navegador.
+    const porFecha = new Map<string, { filename: string; startedAt: string; durationSeconds: number; sizeBytes: number }[]>();
+
+    for (const filename of fs.readdirSync(JORNADAS_DIR)) {
+      const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})\.mp4$/);
+      if (!match) continue;
+
+      const [, fecha, hh, mm, ss] = match;
+      const filePath = path.join(JORNADAS_DIR, filename);
       const stat = fs.statSync(filePath);
-      const metaPath = filePath.replace(/\.(webm|mp4)$/, '.json');
-      
-      let meta: any = {};
-      if (fs.existsSync(metaPath)) {
-        try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch {}
-      }
+      if (!stat.isFile()) continue;
 
-      const createdAt = meta.createdAt || stat.birthtime.toISOString();
-      const createdDate = new Date(createdAt);
-      const expiresDate = new Date(createdDate.getTime() + 15 * 24 * 60 * 60 * 1000);
-      const daysRemaining = Math.max(0, Math.ceil((expiresDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-
-      return {
+      const partes = porFecha.get(fecha) || [];
+      partes.push({
         filename,
-        fightNumber: meta.fightNumber || 1,
-        title: meta.title || filename.replace(/\.(webm|mp4)$/, ''),
+        startedAt: `${fecha}T${hh}:${mm}:${ss}`,
+        durationSeconds: probeDurationSeconds(filePath),
         sizeBytes: stat.size,
-        sizeMB: Math.round((stat.size / (1024 * 1024)) * 100) / 100,
-        createdAt,
-        expiresAt: expiresDate.toISOString(),
-        daysRemaining,
-        durationSeconds: meta.durationSeconds || 120,
-      };
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      });
+      porFecha.set(fecha, partes);
+    }
 
-    res.json({ clips, maxAgeDays: RECORDINGS_MAX_AGE_DAYS });
+    const jornadas = [...porFecha.entries()]
+      .map(([fecha, partes]) => {
+        partes.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+        return {
+          fecha,
+          durationSeconds: partes.reduce((total, p) => total + p.durationSeconds, 0),
+          sizeBytes: partes.reduce((total, p) => total + p.sizeBytes, 0),
+          partes,
+        };
+      })
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+    res.json({ jornadas, maxAgeDays: RECORDINGS_MAX_AGE_DAYS });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Serve Clip Video
-app.get('/api/clips/:filename', (req: Request, res: Response) => {
+app.get('/api/historial/:filename', (req: Request, res: Response) => {
   const { filename } = req.params;
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    res.status(400).json({ error: 'Invalid filename' });
+  // El nombre se compara contra el patrón exacto que escribe MediaMTX. Es más
+  // estrecho que buscar ".." y separadores: lo que no encaje, no se sirve.
+  if (!/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$/.test(filename)) {
+    res.status(400).json({ error: 'Nombre de archivo inválido' });
     return;
   }
 
-  const filePath = path.join(CLIPS_DIR, filename);
+  const filePath = path.join(JORNADAS_DIR, filename);
   if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: 'Clip no encontrado' });
+    res.status(404).json({ error: 'Jornada no encontrada' });
     return;
   }
 
   const stat = fs.statSync(filePath);
   const range = req.headers.range;
 
+  // ?descargar=1 → el navegador guarda en vez de reproducir, y con un nombre
+  // que signifique algo en la carpeta de descargas. El nombre se construye a
+  // partir del filename YA validado contra el patrón de arriba, nunca de algo
+  // que mande el visitante: una cabecera Content-Disposition armada con texto
+  // ajeno es una vía directa para inyectar cabeceras.
+  if (req.query.descargar) {
+    res.setHeader('Content-Disposition', `attachment; filename="la-presa-${filename}"`);
+  }
+
+  // Sin Range no se puede adelantar dentro de un video de cuatro horas: el
+  // navegador tendría que descargarlo entero para saltar al final.
   if (range) {
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
-    const chunkSize = end - start + 1;
+    const match = range.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match) {
+      res.status(416).set('Content-Range', `bytes */${stat.size}`).end();
+      return;
+    }
+
+    // "bytes=-500" NO es del byte 0 al 500: son los ÚLTIMOS 500 bytes. Tratarlo
+    // como el caso normal devuelve el principio del archivo con un 206, o sea
+    // datos equivocados presentados como correctos.
+    let start: number;
+    let end: number;
+    if (!match[1]) {
+      const sufijo = parseInt(match[2], 10);
+      start = Math.max(0, stat.size - sufijo);
+      end = stat.size - 1;
+    } else {
+      start = parseInt(match[1], 10);
+      // El final sí se acota: pedir de más por el final es legítimo y la norma
+      // dice que se sirva hasta donde llegue el archivo.
+      end = match[2] ? Math.min(parseInt(match[2], 10), stat.size - 1) : stat.size - 1;
+    }
+
+    // Un inicio fuera del archivo se rechaza con 416, no se recorta: recortarlo
+    // devolvía el último byte con un 206, haciendo pasar por buena una petición
+    // que no lo era.
+    if (start >= stat.size || start > end) {
+      res.status(416).set('Content-Range', `bytes */${stat.size}`).end();
+      return;
+    }
 
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${stat.size}`,
       'Accept-Ranges': 'bytes',
-      'Content-Length': chunkSize,
-      'Content-Type': filename.endsWith('.webm') ? 'video/webm' : 'video/mp4',
+      'Content-Length': end - start + 1,
+      'Content-Type': 'video/mp4',
     });
-    fs.createReadStream(filePath, { start, end }).pipe(res);
-  } else {
-    res.writeHead(200, {
-      'Content-Length': stat.size,
-      'Content-Type': filename.endsWith('.webm') ? 'video/webm' : 'video/mp4',
-    });
-    fs.createReadStream(filePath).pipe(res);
-  }
-});
-
-// Delete Clip
-app.delete('/api/clips/:filename', requireAdmin, (req: Request, res: Response) => {
-  const { filename } = req.params;
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    res.status(400).json({ error: 'Invalid filename' });
+    enviarArchivo(fs.createReadStream(filePath, { start, end }), res, filename);
     return;
   }
 
-  const filePath = path.join(CLIPS_DIR, filename);
-  const metaPath = filePath.replace(/\.(webm|mp4)$/, '.json');
-
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
-
-  res.json({ message: `Clip ${filename} eliminado` });
+  res.writeHead(200, {
+    'Content-Length': stat.size,
+    'Accept-Ranges': 'bytes',
+    'Content-Type': 'video/mp4',
+  });
+  enviarArchivo(fs.createReadStream(filePath), res, filename);
 });
+
+/**
+ * Vuelca un archivo en la respuesta sin que un fallo de lectura tumbe el
+ * servidor. Estos archivos los escribe MediaMTX como root y los lee esta app
+ * como "node": un problema de permisos aparece a mitad del stream, no al
+ * abrirlo, y un 'error' sin manejador en un stream mata el proceso entero. Que
+ * un video no se pueda servir no puede sacar del aire la transmisión.
+ */
+function enviarArchivo(stream: fs.ReadStream, res: Response, filename: string): void {
+  stream.on('error', (err: Error) => {
+    console.error(`❌ Error sirviendo ${filename}: ${err.message}`);
+    res.destroy();
+  });
+  // Si el visitante cierra el video a media descarga, el stream se queda abierto
+  // consumiendo un descriptor. Con una jornada de 4 horas y varios curiosos,
+  // eso se acumula.
+  res.on('close', () => stream.destroy());
+  stream.pipe(res);
+}
 
 // ─── Live Chat API ───────────────────────────────────────────────────────────
 
@@ -888,18 +961,17 @@ if (fs.existsSync(DIST_DIR)) {
 app.listen(PORT, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║  🎬  La Presa Streaming & Clips Server                       ║
+║  🎬  La Presa Streaming Server                               ║
 ║──────────────────────────────────────────────────────────────║
 ║  Port:            ${PORT}                                       ║
 ║  Retención:       ${RECORDINGS_MAX_AGE_DAYS} días (Autopurga activa)                ║
-║  Clips Dir:       ${CLIPS_DIR.slice(0, 40).padEnd(40)}║
 ║  Frontend:        ${fs.existsSync(DIST_DIR) ? 'Serving from dist/' : 'Not found (API only)'}                        ║
 ╚══════════════════════════════════════════════════════════════╝
   `);
 
   console.log(`🎥 Fuente: ${STREAM_SOURCE}  ·  Salida: ${VIDEO_MAX_HEIGHT}p @ ${VIDEO_BITRATE}`);
   if (STREAM_SOURCE === 'rtmp') {
-    console.log(`📡 Ingesta RTMP: ${RTMP_INGEST_URL} (reintento cada ${RTMP_RETRY_SECONDS}s)`);
+    console.log(`📡 Ingesta RTMP: ${redactCredentials(RTMP_INGEST_URL)} (reintento cada ${RTMP_RETRY_SECONDS}s)`);
   }
 
   cleanOldRecordings();

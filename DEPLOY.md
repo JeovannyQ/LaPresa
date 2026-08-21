@@ -81,7 +81,14 @@ Comprobar desde fuera:
 nc -vz lapresa.quitech.com.do 1935
 ```
 
-### 4. Configurar el celular (Larix Broadcaster)
+### 4. Configurar el emisor: celular o computadora
+
+El servidor no distingue qué aplicación publica: cualquier cliente RTMP sirve,
+siempre que apunte al mismo `live/gallera` con la misma clave. Sale de la
+gallera con el celular o desde una laptop con OBS/PRISM — nunca los dos a la
+vez, MediaMTX solo admite un publicador por ruta.
+
+**Larix Broadcaster** (celular) — tiene campos separados de usuario y clave:
 
 | Campo | Valor |
 |---|---|
@@ -92,6 +99,25 @@ nc -vz lapresa.quitech.com.do 1935
 | Resolución | 1280x720 |
 | Bitrate | 2500 kbps |
 | Keyframe interval | 2 s |
+
+**PRISM Live Studio** (celular o computadora) y **OBS** (computadora) — solo
+traen dos campos (Server/Stream URL + Stream Key), sin usuario/clave aparte.
+Las credenciales van pegadas al final del stream key, tal como las lee
+`authInternalUsers` en `mediamtx.yml`:
+
+| Campo | Valor |
+|---|---|
+| Server / Stream URL | `rtmp://<IP-del-servidor>:1935/live` |
+| Stream Key | `gallera?user=gallera&pass=<RTMP_PUBLISH_PASS>` |
+| Resolución | 1280x720 |
+| Bitrate | 2500 kbps |
+| Keyframe interval | 2 s |
+
+Si alguna app rechaza el `?` dentro del campo de Stream Key (algunos
+validadores de formulario lo bloquean), separar usuario y clave en la URL no
+funciona con ffmpeg del lado servidor (ver nota en `docker-compose.yml` sobre
+`rtmp://usuario:clave@host`), así que en ese caso hay que probar con Larix,
+que sí trae los campos nativos.
 
 ## Verificación
 
