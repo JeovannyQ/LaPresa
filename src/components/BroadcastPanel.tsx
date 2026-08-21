@@ -41,7 +41,6 @@ interface StreamStatus {
   startTime: string | null;
   durationSeconds: number;
   error: string | null;
-  currentRecordingFile: string | null;
   hasStreamKey: boolean;
   streamSource: string;
   // El servidor ya lo mandaba pero el panel lo ignoraba: es lo que distingue

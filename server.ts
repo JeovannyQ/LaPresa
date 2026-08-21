@@ -66,16 +66,11 @@ const LADDER: Rendition[] = [
 const MASTER_PLAYLIST_NAME = 'master.m3u8';
 const HLS_URL = `/live/${MASTER_PLAYLIST_NAME}`;
 
-// Fuentes que ya entregan video comprimido: la grabación puede copiarse sin
-// recodificar. Las demás (webcam, patrón de prueba) entregan cuadros crudos.
-const SOURCE_IS_ENCODED = ['rtmp', 'rtsp', 'file'];
-
 // ─── State ───────────────────────────────────────────────────────────────────
 let ffmpegProcess: ChildProcess | null = null;
 let streamStartTime: Date | null = null;
 let streamStatus: 'idle' | 'starting' | 'live' | 'stopping' | 'error' = 'idle';
 let streamError: string | null = null;
-let currentRecordingFile: string | null = null;
 // Con fuente RTMP el proceso se relanza solo hasta que el celular publique.
 let keepStreaming = false;
 let waitingForPublisher = false;
@@ -121,10 +116,6 @@ function getTimestamp(): string {
     .replace(/T/, '_')
     .replace(/:/g, '-')
     .replace(/\..+/, '');
-}
-
-function getRecordingFilename(): string {
-  return `stream_${getTimestamp()}.mp4`;
 }
 
 function ffmpegPath(filePath: string): string {
@@ -179,8 +170,11 @@ function purgeOldFiles(dir: string, extensions: string[], label: string): void {
 
 function cleanOldRecordings(): void {
   try {
-    // Las grabaciones salen siempre como stream_<fecha>.mp4.
-    purgeOldFiles(RECORDINGS_DIR, ['.mp4'], 'Grabacion');
+    // La raiz de recordings/ ya no recibe nada: las jornadas las escribe
+    // MediaMTX en jornadas/ y se encarga el mismo de su retencion con
+    // recordDeleteAfter. Esta pasada solo barre los stream_<fecha>.mp4 que
+    // dejo la grabacion vieja de ffmpeg, y por eso no entra en jornadas/.
+    purgeOldFiles(RECORDINGS_DIR, ['.mp4'], 'Resto de la grabacion vieja');
   } catch (err) {
     console.error('Error cleaning old recordings:', err);
   }
@@ -218,9 +212,6 @@ function listDshowDevices(): string {
 }
 
 function buildFFmpegArgs(): string[] {
-  const recordingFile = getRecordingFilename();
-  currentRecordingFile = recordingFile;
-
   // Sin esto cada arranque escupe la versión y la línea de "configuration" de
   // ffmpeg, que sola pasa de 1.500 caracteres. Con el reintento cada 5 s eso
   // sepulta los mensajes de error en el log.
@@ -268,7 +259,7 @@ function buildFFmpegArgs(): string[] {
     }
   }
 
-  // ── Salida 1: HLS multicalidad (ABR) ──────────────────────────────────────
+  // ── Salida unica: HLS multicalidad (ABR) ──────────────────────────────────
   // Una sola calidad obligaría a todo el mundo a 2.5 Mbps: quien tenga mala
   // señal se congela en vez de bajar de calidad, y el consumo de ancho de banda
   // (que es la factura) se dispara. El reproductor elige el escalón solo.
@@ -311,19 +302,6 @@ function buildFFmpegArgs(): string[] {
     '-var_stream_map', varStreamMap,
     ffmpegPath(path.join(HLS_DIR, '%v', 'stream.m3u8'))
   );
-
-  // ── Salida 2: grabación en disco ──────────────────────────────────────────
-  // Se mapea la ENTRADA otra vez (no una rama del filtro, que solo se puede
-  // consumir una vez). Cuando la fuente ya viene comprimida —el celular manda
-  // H.264— se copia tal cual: cero CPU y el archivo queda en calidad original.
-  const recordingPath = ffmpegPath(path.join(RECORDINGS_DIR, recordingFile));
-  args.push('-map', videoMap, '-map', audioMap);
-  if (SOURCE_IS_ENCODED.includes(STREAM_SOURCE)) {
-    args.push('-c', 'copy');
-  } else {
-    args.push('-c:v', 'libx264', '-preset', 'veryfast', '-b:v', VIDEO_BITRATE, '-c:a', 'aac', '-b:a', '128k');
-  }
-  args.push('-movflags', '+frag_keyframe+empty_moov', '-f', 'mp4', recordingPath);
 
   return args;
 }
@@ -413,7 +391,6 @@ function spawnFFmpeg(): void {
     }
     console.log(`⏹️ FFmpeg exited code ${code}`);
     ffmpegProcess = null;
-    currentRecordingFile = null;
 
     // El motivo de la salida. Se compara con el intento anterior para no repetir
     // el mismo volcado cada 5 s: la primera vez se explica entero, y a partir de
@@ -491,7 +468,6 @@ app.get('/api/stream/status', (_req: Request, res: Response) => {
     startTime: streamStartTime?.toISOString() || null,
     durationSeconds: duration,
     error: streamError,
-    currentRecordingFile,
     streamSource: STREAM_SOURCE,
     // La URL de publicación NO va aquí: este endpoint es público y quien la
     // conozca podría publicar en el canal. Solo se expone en /api/stream/config.
@@ -560,7 +536,6 @@ app.post('/api/stream/start', requireAdmin, (_req: Request, res: Response) => {
         : 'Transmisión iniciada',
       status: 'starting',
       waitingForPublisher,
-      recordingFile: currentRecordingFile,
     });
   } catch (err: any) {
     keepStreaming = false;
@@ -586,7 +561,6 @@ app.post('/api/stream/stop', requireAdmin, (_req: Request, res: Response) => {
   if (wasWaitingForPublisher) {
     streamStatus = 'idle';
     streamStartTime = null;
-    currentRecordingFile = null;
     res.json({ message: 'Se dejó de esperar la señal del celular', status: 'idle' });
     return;
   }
@@ -819,91 +793,6 @@ app.post('/api/chat/messages', (req: Request, res: Response) => {
   if (chatMessages.length > 100) chatMessages.shift();
 
   res.json({ message: 'Mensaje publicado', data: newMsg });
-});
-
-// ─── Recordings API ──────────────────────────────────────────────────────────
-
-app.get('/api/recordings', requireAdmin, (_req: Request, res: Response) => {
-  try {
-    if (!fs.existsSync(RECORDINGS_DIR)) {
-      res.json({ recordings: [] });
-      return;
-    }
-
-    const files = fs.readdirSync(RECORDINGS_DIR)
-      .filter(f => f.endsWith('.mp4') || f.endsWith('.webm'))
-      .map(filename => {
-        const filePath = path.join(RECORDINGS_DIR, filename);
-        const stat = fs.statSync(filePath);
-        return {
-          filename,
-          sizeBytes: stat.size,
-          sizeMB: Math.round((stat.size / (1024 * 1024)) * 100) / 100,
-          createdAt: stat.birthtime.toISOString(),
-          modifiedAt: stat.mtime.toISOString(),
-        };
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    res.json({ recordings: files, directory: RECORDINGS_DIR });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/recordings/:filename', requireAdmin, (req: Request, res: Response) => {
-  const { filename } = req.params;
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    res.status(400).json({ error: 'Invalid filename' });
-    return;
-  }
-
-  const filePath = path.join(RECORDINGS_DIR, filename);
-  if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: 'Recording not found' });
-    return;
-  }
-
-  const stat = fs.statSync(filePath);
-  const range = req.headers.range;
-
-  if (range) {
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
-    const chunkSize = end - start + 1;
-
-    res.writeHead(206, {
-      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunkSize,
-      'Content-Type': filename.endsWith('.webm') ? 'video/webm' : 'video/mp4',
-    });
-    fs.createReadStream(filePath, { start, end }).pipe(res);
-  } else {
-    res.writeHead(200, {
-      'Content-Length': stat.size,
-      'Content-Type': filename.endsWith('.webm') ? 'video/webm' : 'video/mp4',
-    });
-    fs.createReadStream(filePath).pipe(res);
-  }
-});
-
-app.delete('/api/recordings/:filename', requireAdmin, (req: Request, res: Response) => {
-  const { filename } = req.params;
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    res.status(400).json({ error: 'Invalid filename' });
-    return;
-  }
-
-  const filePath = path.join(RECORDINGS_DIR, filename);
-  if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: 'Recording not found' });
-    return;
-  }
-
-  fs.unlinkSync(filePath);
-  res.json({ message: `Deleted ${filename}` });
 });
 
 app.get('/api/devices', requireAdmin, (_req: Request, res: Response) => {
